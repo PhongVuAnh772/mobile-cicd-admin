@@ -208,6 +208,7 @@ while true; do
   echo -e "    ${CYAN}4.${NC} 🔍 Chạy lại kiểm tra nhanh Test Cases tại chỗ (Local Re-check)
     ${CYAN}5.${NC} 🛡️ Thiết lập GitHub Branch Protection & Org Rulesets (Admin)
     ${PURPLE}6.${NC} 🚀 Kích hoạt First Deploy Prod (Ký Keystore, tạo file .aab chuẩn Google Play)
+    ${GREEN}7.${NC} ⚡ Đẩy bản cập nhật OTA Hotfix lên AWS S3 (30s không cần duyệt Store)
 
   if [ "$RECOMMENDED_STEP" -eq 0 ]; then
     echo -e "  ${GREEN}${BOLD}▶ 0. 🚪 Hoàn tất quy trình & Thoát Terminal${NC}  ${YELLOW}${BOLD}⭐ [KHUYÊN DÙNG THOÁT]${NC}"
@@ -216,7 +217,7 @@ while true; do
   fi
   echo ""
 
-  PROMPT_TEXT="Nhập lựa chọn [0-6] (Mặc định: $RECOMMENDED_STEP): "
+  PROMPT_TEXT="Nhập lựa chọn [0-7] (Mặc định: $RECOMMENDED_STEP): "
   if [ -t 0 ]; then
     read -p "$(echo -e ${YELLOW}"$PROMPT_TEXT"${NC})" ACTION_CHOICE
   elif [ -c /dev/tty ]; then
@@ -345,6 +346,34 @@ while true; do
 
       RECOMMENDED_STEP=0
       LAST_ACTION_MSG="${GREEN}✅ FIRST DEPLOY PROD HOÀN TẤT:${NC} Bản .aab và .apk đã được ký số và gửi lên GitHub Artifacts & Slack!\n👉 Bạn có thể tải file .aab về để tải lên Google Play Console lần đầu."
+      ;;
+
+    7)
+      echo ""
+      echo -e "${GREEN}⚡ [OTA HOTFIX] Chuẩn bị đẩy bản cập nhật JS Bundle lên AWS S3...${NC}"
+      read -p "$(echo -e ${YELLOW}"Nhập ghi chú bản vá OTA (Mặc định: Hotfix update): "${NC})" INPUT_OTA_MSG
+      INPUT_OTA_MSG=${INPUT_OTA_MSG:-"Hotfix update via AWS S3 OTA"}
+      
+      cd "$GIT_ROOT"
+      if command -v gh &> /dev/null; then
+        echo -e "${CYAN}🚀 Đang kích hoạt luồng OTA Hotfix trên GitHub Actions...${NC}"
+        gh workflow run ci.yml -f action_type=ota_update -f environment=production -f ota_message="$INPUT_OTA_MSG"
+        sleep 2
+        RUN_ID=$(gh run list --workflow=ci.yml --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+        RUN_URL=$(gh run list --workflow=ci.yml --limit 1 --json url -q '.[0].url' 2>/dev/null || true)
+        
+        if [ -n "$RUN_URL" ]; then
+          echo -e "  🔗 ${BOLD}GitHub Actions Run URL:${NC} ${CYAN}$RUN_URL${NC}"
+          echo -e "  📋 ${BOLD}Run ID:${NC} ${GREEN}#$RUN_ID${NC}"
+          echo ""
+          echo -e "${YELLOW}👀 Đang theo dõi tiến trình đóng gói & đẩy OTA lên AWS S3 (< 30s)...${NC}"
+          gh run watch "$RUN_ID" || true
+          echo ""
+        fi
+      fi
+
+      RECOMMENDED_STEP=0
+      LAST_ACTION_MSG="${GREEN}✅ OTA HOTFIX HOÀN TẤT:${NC} Bản vá JS Bundle đã được đưa lên AWS S3 thành công!\n👉 Người dùng mở App lên sẽ tự động nhận code mới trong 30 giây."
       ;;
 
     0|q|Q|exit|quit)
