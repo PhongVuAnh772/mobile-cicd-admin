@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "flags": {
+    "ENABLE_BIOMETRIC_AUTH": {
+      "defaultValue": true,
+      "description": "Enable FaceID / TouchID biometric authentication",
+      "killSwitchActive": false,
+      "rolloutPercentage": 100
+    },
+    "ENABLE_NEW_PAYMENT_FLOW": {
+      "defaultValue": false,
+      "description": "New crypto payment gateway with instant QR scanning",
+      "killSwitchActive": false,
+      "rolloutPercentage": 50
+    },
+    "ENABLE_CRYPTO_STAKING": {
+      "defaultValue": false,
+      "description": "Crypto staking and yield farming module",
+      "killSwitchActive": false,
+      "rolloutPercentage": 0
+    },
+    "ENABLE_HARDWARE_WALLET_SYNC": {
+      "defaultValue": false,
+      "description": "Ledger & Trezor hardware wallet USB/Bluetooth sync",
+      "killSwitchActive": false,
+      "rolloutPercentage": 10
+    }
+  }
+}

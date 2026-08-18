@@ -1,0 +1,70 @@
+default_platform(:android)
+
+platform :android do
+
+  # ============================================================================
+  # 🚀 FIRST RELEASE — Chỉ dùng khi app CHƯA CÓ trên Google Play
+  # ============================================================================
+  # Lần đầu: Upload lên Internal Testing track (KHÔNG phải Production)
+  # Team test trên Internal ➔ Promote thủ công lên Production trên Play Console
+  # ============================================================================
+  desc "🚀 FIRST RELEASE: Build AAB & Upload lên Google Play Internal Testing"
+  lane :first_release do
+    gradle(
+      task: "bundle",
+      build_type: "Release"
+    )
+
+    upload_to_play_store(
+      track: "internal",           # ⚠️ Lần đầu đẩy lên Internal Testing, KHÔNG phải Production
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      skip_upload_screenshots: false,  # ✅ Upload screenshots lần đầu
+      skip_upload_metadata: false,     # ✅ Upload metadata lần đầu
+      release_status: "draft"          # ⚠️ Trạng thái Draft — review thủ công trước khi publish
+    )
+
+    UI.success("✅ First Release Android hoàn tất!")
+    UI.important("👉 Vào Google Play Console ➔ Internal Testing ➔ Review ➔ Promote to Production")
+  end
+
+  # ============================================================================
+  # 🔄 UPDATE RELEASE — Dùng cho các bản cập nhật định kỳ sau lần đầu
+  # ============================================================================
+  # Đẩy thẳng lên Production với Staged Rollout 1% ➔ 100%
+  # ============================================================================
+  desc "🔄 UPDATE RELEASE: Build AAB & Upload thẳng lên Production (Staged Rollout)"
+  lane :update_release do
+    gradle(
+      task: "bundle",
+      build_type: "Release"
+    )
+
+    upload_to_play_store(
+      track: "production",          # ✅ Đẩy thẳng lên Production
+      rollout: "0.01",              # ✅ Bắt đầu từ 1% (Staged Rollout)
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      skip_upload_screenshots: true,   # ⏭️ Bỏ qua screenshots (đã có từ lần đầu)
+      skip_upload_metadata: true       # ⏭️ Bỏ qua metadata (đã có từ lần đầu)
+    )
+
+    UI.success("🔄 Update Release Android hoàn tất — Staged Rollout 1% đã kích hoạt!")
+  end
+
+  # ============================================================================
+  # 📤 UPLOAD MAPPING — ProGuard mapping cho Crashlytics
+  # ============================================================================
+  desc "📤 Upload ProGuard mapping.txt lên Firebase Crashlytics"
+  lane :upload_mapping do
+    upload_symbols_to_crashlytics(
+      mapping_path: "android/app/build/outputs/mapping/release/mapping.txt"
+    )
+  end
+
+  # ============================================================================
+  # 📸 SCREENSHOTS — Chụp ảnh tự động đa thiết bị
+  # ============================================================================
+  desc "📸 Chụp ảnh màn hình Android bằng Screengrab"
+  lane :take_screenshots do
+    screengrab
+  end
+end

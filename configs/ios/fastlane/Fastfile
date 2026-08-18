@@ -1,0 +1,118 @@
+default_platform(:ios)
+
+platform :ios do
+
+  # ============================================================================
+  # 🚀 FIRST RELEASE — Chỉ dùng khi app CHƯA CÓ trên App Store
+  # ============================================================================
+  # Lần đầu: tạo Certificate + Profile mới, upload TẤT CẢ (binary + metadata + screenshots)
+  # submit_for_review: false ➔ Chờ team kiểm tra thủ công trên App Store Connect
+  # automatic_release: false ➔ Khi Apple approve, KHÔNG tự phát hành
+  # ============================================================================
+  desc "🚀 FIRST RELEASE: Khởi tạo Certificate, Build IPA, Upload toàn bộ lần đầu"
+  lane :first_release do
+    # Lần đầu PHẢI chạy match KHÔNG readonly để tạo Certificate + Profile
+    match(type: "appstore", readonly: false)
+
+    build_app(
+      workspace: "{{PROJECT_NAME}}.xcworkspace",
+      scheme: "{{PROJECT_NAME}}",
+      configuration: "Release",
+      export_method: "app-store",
+      clean: true,
+      output_directory: "build"
+    )
+
+    deliver(
+      submit_for_review: false,    # ⚠️ KHÔNG tự submit — kiểm tra thủ công trước
+      automatic_release: false,    # ⚠️ KHÔNG tự phát hành khi Apple duyệt
+      force: true,                 # Bỏ qua xác nhận HTML preview
+      skip_metadata: false,        # ✅ Upload metadata (tên app, mô tả, keywords...)
+      skip_screenshots: false,     # ✅ Upload screenshots (bắt buộc lần đầu)
+      phased_release: false,       # ❌ Lần đầu KHÔNG phased rollout — phát hành 100%
+      run_precheck_before_submit: true,
+      precheck_include_in_app_purchases: false
+    )
+
+    UI.success("✅ First Release iOS hoàn tất!")
+    UI.important("👉 Vào App Store Connect để kiểm tra và bấm Submit for Review")
+  end
+
+  # ============================================================================
+  # 🔄 UPDATE RELEASE — Dùng cho các bản cập nhật định kỳ sau lần đầu
+  # ============================================================================
+  # Sau lần đầu: sync Certificate readonly, auto version bump, tự submit review
+  # phased_release: true ➔ Phát hành dần từ 1% → 100% trong 7 ngày
+  # ============================================================================
+  desc "🔄 UPDATE RELEASE: Tăng version, build & submit tự động cho các bản cập nhật"
+  lane :update_release do
+    # Sync Certificate readonly (đã tạo từ first_release)
+    match(type: "appstore", readonly: true)
+
+    # Tăng build number tự động
+    increment_build_number(
+      build_number: latest_testflight_build_number + 1,
+      xcodeproj: "{{PROJECT_NAME}}.xcodeproj"
+    )
+
+    build_app(
+      workspace: "{{PROJECT_NAME}}.xcworkspace",
+      scheme: "{{PROJECT_NAME}}",
+      configuration: "Release",
+      export_method: "app-store",
+      clean: true,
+      output_directory: "build"
+    )
+
+    deliver(
+      submit_for_review: true,     # ✅ Tự submit cho Apple review
+      automatic_release: true,     # ✅ Tự phát hành khi Apple duyệt
+      force: true,
+      skip_metadata: true,         # ⏭️ Bỏ qua metadata (đã có từ lần đầu)
+      skip_screenshots: true,      # ⏭️ Bỏ qua screenshots (đã có từ lần đầu)
+      phased_release: true,        # ✅ Phát hành dần 1% → 2% → 5% → ... → 100%
+      run_precheck_before_submit: true,
+      precheck_include_in_app_purchases: false
+    )
+
+    # Commit version bump
+    commit_version_bump(message: "chore(release): iOS version bump [skip ci]")
+    push_to_git_remote
+
+    UI.success("🔄 Update Release iOS hoàn tất — Phased Rollout đã kích hoạt!")
+  end
+
+  # ============================================================================
+  # 📲 AD-HOC BUILD — Dùng cho môi trường Dev & Feature branches
+  # ============================================================================
+  desc "📲 AD-HOC: Build IPA đẩy lên AWS S3 (Dev/Feature test)"
+  lane :adhoc_aws do
+    match(type: "adhoc", readonly: true)
+
+    build_app(
+      workspace: "{{PROJECT_NAME}}.xcworkspace",
+      scheme: "{{PROJECT_NAME}}",
+      configuration: "Release",
+      export_method: "ad-hoc",
+      output_directory: "build"
+    )
+  end
+
+  # ============================================================================
+  # 📤 UPLOAD SYMBOLS — dSYM cho Crashlytics & Sentry
+  # ============================================================================
+  desc "📤 Upload dSYM symbols lên Crashlytics & Sentry"
+  lane :upload_symbols do
+    download_dsyms
+    upload_symbols_to_crashlytics
+    sentry_upload_dsym
+  end
+
+  # ============================================================================
+  # 📸 SCREENSHOTS — Chụp ảnh tự động đa thiết bị
+  # ============================================================================
+  desc "📸 Chụp ảnh màn hình tự động bằng Snapshot"
+  lane :take_screenshots do
+    snapshot
+  end
+end

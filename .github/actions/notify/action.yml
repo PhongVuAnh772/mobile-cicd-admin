@@ -1,0 +1,358 @@
+# ============================================================================
+# 📢 REUSABLE NOTIFICATION ACTION
+# Gửi thông báo Slack + Microsoft Teams khi CI/CD hoàn tất
+# Hỗ trợ phân biệt: Governance, Ad-Hoc, First Release, Update Release,
+#                    Store Deploy, Hotfix, White-Label
+# ============================================================================
+name: "Notify Slack & Teams"
+description: "Gửi thông báo kết quả build/release lên Slack và Microsoft Teams"
+
+inputs:
+  # ── Loại thông báo ──────────────────────────────────────────────
+  notify_type:
+    description: "Loại thông báo: governance | adhoc | first_release | update_release | store_deploy | hotfix | whitelabel"
+    required: true
+  status:
+    description: "Trạng thái: success | failure | warning"
+    required: true
+    default: "success"
+
+  # ── Thông tin build ─────────────────────────────────────────────
+  app_name:
+    description: "Tên app"
+    required: true
+  version:
+    description: "Version hiện tại (VD: 1.2.0)"
+    required: false
+    default: ""
+  platform:
+    description: "Platform: ios | android | both"
+    required: false
+    default: "both"
+  environment:
+    description: "Môi trường: dev | staging | production"
+    required: false
+    default: "production"
+  build_number:
+    description: "Build number"
+    required: false
+    default: ""
+
+  # ── Link download / QR ─────────────────────────────────────────
+  apk_url:
+    description: "Link tải APK (Ad-Hoc)"
+    required: false
+    default: ""
+  ipa_url:
+    description: "Link tải IPA OTA (Ad-Hoc)"
+    required: false
+    default: ""
+  appetize_url:
+    description: "Link Appetize.io preview"
+    required: false
+    default: ""
+
+  # ── Rollout ─────────────────────────────────────────────────────
+  rollout_percentage:
+    description: "Phần trăm rollout (VD: 1%, 5%, 100%)"
+    required: false
+    default: ""
+
+  # ── Hotfix ──────────────────────────────────────────────────────
+  hotfix_type:
+    description: "Loại hotfix: ota | store | rollback | kill-switch"
+    required: false
+    default: ""
+  crash_rate:
+    description: "Crash rate hiện tại (VD: 2.5%)"
+    required: false
+    default: ""
+
+  # ── Thông tin thêm ──────────────────────────────────────────────
+  custom_message:
+    description: "Tin nhắn tuỳ chỉnh thêm"
+    required: false
+    default: ""
+  pr_number:
+    description: "Số PR"
+    required: false
+    default: ""
+  pr_title:
+    description: "Tiêu đề PR"
+    required: false
+    default: ""
+  branch:
+    description: "Nhánh hiện tại"
+    required: false
+    default: ""
+  commit_sha:
+    description: "Commit SHA"
+    required: false
+    default: ""
+
+  # ── Tokens ──────────────────────────────────────────────────────
+  slack_webhook_url:
+    description: "Slack Incoming Webhook URL"
+    required: false
+    default: ""
+  teams_webhook_url:
+    description: "Microsoft Teams Incoming Webhook URL"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    # ────────────────────────────────────────────────────────────────
+    # 1. TẠO NỘI DUNG THÔNG BÁO THEO TỪNG LOẠI
+    # ────────────────────────────────────────────────────────────────
+    - name: Build notification payload
+      id: payload
+      shell: bash
+      run: |
+        # Emoji & Color theo trạng thái
+        if [ "${{ inputs.status }}" = "success" ]; then
+          STATUS_EMOJI="✅"
+          STATUS_TEXT="THÀNH CÔNG"
+          SLACK_COLOR="#36a64f"
+          TEAMS_COLOR="00FF00"
+        elif [ "${{ inputs.status }}" = "failure" ]; then
+          STATUS_EMOJI="❌"
+          STATUS_TEXT="THẤT BẠI"
+          SLACK_COLOR="#ff0000"
+          TEAMS_COLOR="FF0000"
+        else
+          STATUS_EMOJI="⚠️"
+          STATUS_TEXT="CẢNH BÁO"
+          SLACK_COLOR="#ffcc00"
+          TEAMS_COLOR="FFCC00"
+        fi
+
+        # ── Tạo tiêu đề & nội dung theo loại ──────────────────────
+        case "${{ inputs.notify_type }}" in
+
+          governance)
+            TITLE="${STATUS_EMOJI} MR Governance — PR #${{ inputs.pr_number }}"
+            BODY="*PR:* ${{ inputs.pr_title }}
+        *Nhánh:* \`${{ inputs.branch }}\`
+        *Kiểm tra:* Gitleaks · Yarn Audit · Jest Coverage · Bundle Size · Danger JS
+        *Trạng thái:* ${STATUS_TEXT}"
+            TEAMS_BODY="**PR:** ${{ inputs.pr_title }}<br>**Nhánh:** \`${{ inputs.branch }}\`<br>**Kiểm tra:** Gitleaks · Yarn Audit · Jest Coverage · Bundle Size · Danger JS<br>**Trạng thái:** ${STATUS_TEXT}"
+            ;;
+
+          adhoc)
+            TITLE="📲 Ad-Hoc Build — ${{ inputs.app_name }} [${{ inputs.environment }}]"
+            BODY="*Nhánh:* \`${{ inputs.branch }}\`
+        *Platform:* ${{ inputs.platform }}
+        *Commit:* \`${GITHUB_SHA:0:8}\`
+        *Trạng thái:* ${STATUS_EMOJI} ${STATUS_TEXT}
+
+        📥 *Link tải bản test:*
+        • Android APK: ${{ inputs.apk_url }}
+        • iOS OTA: ${{ inputs.ipa_url }}
+        • Web Preview: ${{ inputs.appetize_url }}
+
+        _Quét QR code trong PR comment để cài app trực tiếp._"
+            TEAMS_BODY="**Nhánh:** \`${{ inputs.branch }}\`<br>**Platform:** ${{ inputs.platform }}<br>**Commit:** \`${GITHUB_SHA:0:8}\`<br>**Trạng thái:** ${STATUS_EMOJI} ${STATUS_TEXT}<br><br>📥 **Link tải bản test:**<br>• Android APK: ${{ inputs.apk_url }}<br>• iOS OTA: ${{ inputs.ipa_url }}<br>• Web Preview: ${{ inputs.appetize_url }}"
+            ;;
+
+          first_release)
+            TITLE="🚀 FIRST RELEASE — ${{ inputs.app_name }} v${{ inputs.version }}"
+            BODY="*Loại:* 🆕 Lần đầu tiên lên Store
+        *Version:* \`${{ inputs.version }}\` (Build #${{ inputs.build_number }})
+        *Platform:* ${{ inputs.platform }}
+        *Trạng thái:* ${STATUS_EMOJI} ${STATUS_TEXT}
+
+        ⚠️ *Bước tiếp theo (THỦ CÔNG):*
+        • iOS: Vào App Store Connect → Kiểm tra → Submit for Review
+        • Android: Vào Play Console → Internal Testing → Promote to Production
+
+        _Đây là bản release đầu tiên. Từ bản sau sẽ tự động._"
+            TEAMS_BODY="**Loại:** 🆕 Lần đầu tiên lên Store<br>**Version:** \`${{ inputs.version }}\` (Build #${{ inputs.build_number }})<br>**Platform:** ${{ inputs.platform }}<br>**Trạng thái:** ${STATUS_EMOJI} ${STATUS_TEXT}<br><br>⚠️ **Bước tiếp theo (THỦ CÔNG):**<br>• iOS: Vào App Store Connect → Kiểm tra → Submit for Review<br>• Android: Vào Play Console → Internal Testing → Promote to Production"
+            ;;
+
+          update_release)
+            TITLE="🔄 UPDATE RELEASE — ${{ inputs.app_name }} v${{ inputs.version }}"
+            BODY="*Loại:* 🔄 Bản cập nhật định kỳ
+        *Version:* \`${{ inputs.version }}\` (Build #${{ inputs.build_number }})
+        *Platform:* ${{ inputs.platform }}
+        *Trạng thái:* ${STATUS_EMOJI} ${STATUS_TEXT}
+
+        📦 *Chi tiết:*
+        • Binary đã upload lên App Store Connect & Play Console
+        • Tự submit cho Apple & Google review
+        • Phased Rollout sẽ bắt đầu sau khi Store approve
+        • CHANGELOG.md & Git Tag đã tạo"
+            TEAMS_BODY="**Loại:** 🔄 Bản cập nhật định kỳ<br>**Version:** \`${{ inputs.version }}\` (Build #${{ inputs.build_number }})<br>**Platform:** ${{ inputs.platform }}<br>**Trạng thái:** ${STATUS_EMOJI} ${STATUS_TEXT}<br><br>📦 **Chi tiết:**<br>• Binary đã upload lên Store<br>• Phased Rollout sẽ bắt đầu sau khi approve"
+            ;;
+
+          store_deploy)
+            TITLE="🏪 STORE DEPLOYMENT — ${{ inputs.app_name }} v${{ inputs.version }}"
+            BODY="*Loại:* 🏪 Phased Rollout đang chạy
+        *Version:* \`${{ inputs.version }}\`
+        *Rollout:* ${{ inputs.rollout_percentage }}
+        *Platform:* ${{ inputs.platform }}
+        *Trạng thái:* ${STATUS_EMOJI} ${STATUS_TEXT}
+
+        📊 _Rollout sẽ tăng dần: 1% → 2% → 5% → 10% → 20% → 50% → 100% (7 ngày)_
+        _Theo dõi crash rate tại workflow 05-telemetry._"
+            TEAMS_BODY="**Loại:** 🏪 Phased Rollout<br>**Version:** \`${{ inputs.version }}\`<br>**Rollout:** ${{ inputs.rollout_percentage }}<br>**Trạng thái:** ${STATUS_EMOJI} ${STATUS_TEXT}"
+            ;;
+
+          hotfix)
+            case "${{ inputs.hotfix_type }}" in
+              ota)
+                HOTFIX_LABEL="⚡ OTA Hotfix (CodePush)"
+                HOTFIX_DETAIL="Bản vá JS bundle đã được đẩy qua OTA. User sẽ nhận bản fix khi mở lại app (~1 phút)."
+                ;;
+              rollback)
+                HOTFIX_LABEL="⏪ ROLLBACK"
+                HOTFIX_DETAIL="Đã rollback về version trước. Bản lỗi đã bị thu hồi."
+                ;;
+              kill-switch)
+                HOTFIX_LABEL="🛑 KILL-SWITCH ACTIVATED"
+                HOTFIX_DETAIL="Remote Config đã vô hiệu hoá tính năng lỗi. User sẽ thấy thông báo bảo trì."
+                ;;
+              *)
+                HOTFIX_LABEL="🔧 Store Hotfix"
+                HOTFIX_DETAIL="Bản hotfix đã submit lên Store. Chờ review ~24-48h."
+                ;;
+            esac
+
+            TITLE="🚨 ${HOTFIX_LABEL} — ${{ inputs.app_name }} v${{ inputs.version }}"
+            BODY="*Loại:* ${HOTFIX_LABEL}
+        *Version:* \`${{ inputs.version }}\`
+        *Crash Rate:* ${{ inputs.crash_rate }}
+        *Trạng thái:* ${STATUS_EMOJI} ${STATUS_TEXT}
+
+        📋 *Chi tiết:*
+        ${HOTFIX_DETAIL}
+
+        ${{ inputs.custom_message }}"
+            TEAMS_BODY="**Loại:** ${HOTFIX_LABEL}<br>**Version:** \`${{ inputs.version }}\`<br>**Crash Rate:** ${{ inputs.crash_rate }}<br>**Trạng thái:** ${STATUS_EMOJI} ${STATUS_TEXT}<br><br>${HOTFIX_DETAIL}"
+            ;;
+
+          whitelabel)
+            TITLE="🏭 WHITE-LABEL BUILD — ${{ inputs.app_name }}"
+            BODY="*Loại:* 🏭 White-Label Matrix Build
+        *Biến thể:* ${{ inputs.custom_message }}
+        *Platform:* ${{ inputs.platform }}
+        *Trạng thái:* ${STATUS_EMOJI} ${STATUS_TEXT}
+
+        _Build đa biến thể hoàn tất. Kiểm tra Artifacts trên GitHub Actions._"
+            TEAMS_BODY="**Loại:** 🏭 White-Label Matrix Build<br>**Biến thể:** ${{ inputs.custom_message }}<br>**Platform:** ${{ inputs.platform }}<br>**Trạng thái:** ${STATUS_EMOJI} ${STATUS_TEXT}"
+            ;;
+
+          *)
+            TITLE="${STATUS_EMOJI} CI/CD — ${{ inputs.app_name }}"
+            BODY="*Trạng thái:* ${STATUS_TEXT}
+        ${{ inputs.custom_message }}"
+            TEAMS_BODY="**Trạng thái:** ${STATUS_TEXT}<br>${{ inputs.custom_message }}"
+            ;;
+        esac
+
+        # ── Export cho các step sau ────────────────────────────────
+        echo "TITLE<<EOF" >> $GITHUB_OUTPUT
+        echo "$TITLE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+        echo "BODY<<EOF" >> $GITHUB_OUTPUT
+        echo "$BODY" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+        echo "TEAMS_BODY<<EOF" >> $GITHUB_OUTPUT
+        echo "$TEAMS_BODY" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+        echo "SLACK_COLOR=$SLACK_COLOR" >> $GITHUB_OUTPUT
+        echo "TEAMS_COLOR=$TEAMS_COLOR" >> $GITHUB_OUTPUT
+
+    # ────────────────────────────────────────────────────────────────
+    # 2. GỬI SLACK
+    # ────────────────────────────────────────────────────────────────
+    - name: "📢 Gửi Slack Notification"
+      if: inputs.slack_webhook_url != ''
+      shell: bash
+      run: |
+        REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+        RUN_URL="${REPO_URL}/actions/runs/${GITHUB_RUN_ID}"
+
+        curl -s -X POST "${{ inputs.slack_webhook_url }}" \
+          -H "Content-Type: application/json" \
+          -d @- <<PAYLOAD
+        {
+          "attachments": [
+            {
+              "color": "${{ steps.payload.outputs.SLACK_COLOR }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ steps.payload.outputs.TITLE }}",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ steps.payload.outputs.BODY }}"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "🔗 <${RUN_URL}|Xem chi tiết trên GitHub Actions> · ${GITHUB_REPOSITORY} · $(date +'%Y-%m-%d %H:%M %Z')"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        PAYLOAD
+
+    # ────────────────────────────────────────────────────────────────
+    # 3. GỬI MICROSOFT TEAMS
+    # ────────────────────────────────────────────────────────────────
+    - name: "📢 Gửi Teams Notification"
+      if: inputs.teams_webhook_url != ''
+      shell: bash
+      run: |
+        REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+        RUN_URL="${REPO_URL}/actions/runs/${GITHUB_RUN_ID}"
+
+        curl -s -X POST "${{ inputs.teams_webhook_url }}" \
+          -H "Content-Type: application/json" \
+          -d @- <<PAYLOAD
+        {
+          "@type": "MessageCard",
+          "@context": "http://schema.org/extensions",
+          "themeColor": "${{ steps.payload.outputs.TEAMS_COLOR }}",
+          "summary": "${{ steps.payload.outputs.TITLE }}",
+          "sections": [
+            {
+              "activityTitle": "${{ steps.payload.outputs.TITLE }}",
+              "text": "${{ steps.payload.outputs.TEAMS_BODY }}",
+              "facts": [
+                { "name": "Repository", "value": "${GITHUB_REPOSITORY}" },
+                { "name": "Workflow", "value": "${GITHUB_WORKFLOW}" },
+                { "name": "Run", "value": "#${GITHUB_RUN_NUMBER}" }
+              ],
+              "markdown": true
+            }
+          ],
+          "potentialAction": [
+            {
+              "@type": "OpenUri",
+              "name": "Xem trên GitHub Actions",
+              "targets": [
+                { "os": "default", "uri": "${RUN_URL}" }
+              ]
+            }
+          ]
+        }
+        PAYLOAD
