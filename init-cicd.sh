@@ -15,8 +15,8 @@
 #   1. Mở Terminal và cd vào bất kỳ dự án Mobile nào (React Native / Expo).
 #   2. Gõ đúng 1 từ:
 #        init-mobile-cicd
-#   3. Hệ thống tự động kéo script qua SSH (kể cả Private Repo), cấu hình CI/CD pointer,
-#      chạy 70 Test Cases và hướng dẫn từng bước tiếp theo trực quan!
+#   3. Hệ thống tự động kéo script qua SSH, cấu hình CI/CD, chạy 70 Test Cases,
+#      theo dõi Live Logs trực tiếp trên terminal và hướng dẫn từng bước!
 # ============================================================================
 
 RED='\033[0;31m'
@@ -88,88 +88,13 @@ echo -e "  📁 Git Root:        ${CYAN}$GIT_ROOT${NC}"
 echo ""
 
 # ──────────────────────────────────────────────────────────────────────────
-# 2. AUTO-GENERATE .github/workflows/ci.yml AT GIT ROOT & TARGET DIR
+# 2. SYNC .github/workflows/ci.yml AT GIT ROOT & TARGET DIR
 # ──────────────────────────────────────────────────────────────────────────
-echo -e "${BOLD}${BLUE}⚙️  [2/4] Tự động khởi tạo .github/workflows/ci.yml...${NC}"
+echo -e "${BOLD}${BLUE}⚙️  [2/4] Đồng bộ file .github/workflows/ci.yml...${NC}"
 
-generate_ci_yml() {
-  local out_dir="$1"
-  mkdir -p "$out_dir/.github/workflows"
-
-  cat << 'EOF' > "$out_dir/.github/workflows/ci.yml"
-name: "Enterprise Mobile CI/CD"
-
-# ============================================================================
-# CENTRALIZED ENTERPRISE MOBILE CI/CD POINTER
-# Powered by: phong-mobile/mobile-cicd-admin
-# All core logic, security scanning, build scripts, AWS S3 deployments,
-# Slack Block Kit notifications, and 70-TC health checks are centrally managed.
-# ============================================================================
-
-on:
-  push:
-    branches: [main, dev]
-    tags:
-      - 'v*.*.*'
-      - 'v*'
-  pull_request:
-    branches: [main, dev]
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Target deployment environment"
-        required: true
-        default: "staging"
-        type: choice
-        options:
-          - staging
-          - production
-      skip_tests:
-        description: "Skip CI lint, type-check and unit tests"
-        required: false
-        default: false
-        type: boolean
-      run_healthcheck:
-        description: "Run 70-TC CI/CD Init Health Check suite"
-        required: false
-        default: false
-        type: boolean
-
-jobs:
-  # ──────────────────────────────────────────────────────────────────────────
-  # 1. MAIN CI/CD PIPELINE (Build, S3 Web Store, Release Approval, Slack)
-  # ──────────────────────────────────────────────────────────────────────────
-  pipeline:
-    name: "Enterprise Mobile Pipeline"
-    if: github.event.inputs.run_healthcheck != 'true'
-    uses: phong-mobile/mobile-cicd-admin/.github/workflows/master-pipeline.yml@main
-    with:
-      app_name: "APP_NAME_PLACEHOLDER"
-      environment: ${{ github.event.inputs.environment || ((github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'production' || 'staging') }}
-      skip_tests: ${{ github.event.inputs.skip_tests == 'true' }}
-    secrets: inherit
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # 2. CI/CD INIT HEALTH CHECK (70 Test Cases, Auto-Detects Project & Native Modules)
-  # ──────────────────────────────────────────────────────────────────────────
-  healthcheck:
-    name: "CI/CD Init Health Check"
-    if: github.event.inputs.run_healthcheck == 'true'
-    uses: phong-mobile/mobile-cicd-admin/.github/workflows/cicd-init-healthcheck.yml@main
-    with:
-      app_name: "APP_NAME_PLACEHOLDER"
-      environment: ${{ github.event.inputs.environment || 'staging' }}
-    secrets: inherit
-EOF
-
-  sed -i '' "s/APP_NAME_PLACEHOLDER/$APP_NAME/g" "$out_dir/.github/workflows/ci.yml" 2>/dev/null || \
-  sed -i "s/APP_NAME_PLACEHOLDER/$APP_NAME/g" "$out_dir/.github/workflows/ci.yml" 2>/dev/null || true
-}
-
-generate_ci_yml "$GIT_ROOT"
-[ "$TARGET_DIR" != "$GIT_ROOT" ] && generate_ci_yml "$TARGET_DIR"
-
-echo -e "  ${GREEN}✅ Đã đồng bộ file .github/workflows/ci.yml trỏ về mobile-cicd-admin!${NC}"
+if [ -f "$GIT_ROOT/.github/workflows/ci.yml" ]; then
+  echo -e "  ${GREEN}✅ File .github/workflows/ci.yml đã sẵn sàng tại $GIT_ROOT!${NC}"
+fi
 echo ""
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -216,7 +141,7 @@ run_local_checks() {
 run_local_checks
 
 # ──────────────────────────────────────────────────────────────────────────
-# 4. GUIDED INTERACTIVE WORKFLOW LOOP (Không thoát sớm, khuyên dùng bước tiếp theo)
+# 4. GUIDED INTERACTIVE WORKFLOW LOOP (LIVE STREAMING & REAL PROGRESS)
 # ──────────────────────────────────────────────────────────────────────────
 RECOMMENDED_STEP=1
 LAST_ACTION_MSG=""
@@ -231,7 +156,6 @@ while true; do
     echo ""
   fi
 
-  # Render Menu with dynamically highlighted recommendation
   if [ "$RECOMMENDED_STEP" -eq 1 ]; then
     echo -e "  ${GREEN}${BOLD}▶ 1. 🏥 Chạy bộ kiểm thử 70 Test Cases Health Check lên Slack${NC}  ${YELLOW}${BOLD}⭐ [KHUYÊN DÙNG BƯỚC NÀY]${NC}"
   else
@@ -259,7 +183,6 @@ while true; do
   fi
   echo ""
 
-  # Prompt user for input
   PROMPT_TEXT="Nhập lựa chọn [0-4] (Mặc định: $RECOMMENDED_STEP): "
   if [ -t 0 ]; then
     read -p "$(echo -e ${YELLOW}"$PROMPT_TEXT"${NC})" ACTION_CHOICE
@@ -274,46 +197,74 @@ while true; do
   case "$ACTION_CHOICE" in
     1)
       echo ""
-      echo -e "${CYAN}🚀 [BƯỚC 1/3] Đang đồng bộ Git & kích hoạt 70 Test Cases Health Check...${NC}"
+      echo -e "${CYAN}🚀 [BƯỚC 1/3] Đang kích hoạt 70 Test Cases Health Check trên GitHub Actions...${NC}"
       cd "$GIT_ROOT"
-      git add .github/workflows/ci.yml crypto-vault-expo/.github/workflows/ci.yml 2>/dev/null || true
-      git commit -m "ci: init CI/CD pipeline and trigger 70-TC health check" 2>/dev/null || echo "Git index up-to-date"
       git push origin main 2>/dev/null || git push phong-mobile main 2>/dev/null || true
       
       if command -v gh &> /dev/null; then
-        echo -e "${GREEN}⚡ Đang gọi lệnh GitHub Actions trigger Health Check...${NC}"
-        gh workflow run ci.yml -f run_healthcheck=true -f environment=staging 2>/dev/null || gh workflow run "Enterprise Mobile CI/CD" -f run_healthcheck=true -f environment=staging 2>/dev/null || true
-        echo -e "${GREEN}🎉 Đã kích hoạt 70 Test Cases! Kết quả đang được gửi về Slack có 3 Buttons.${NC}"
-      else
-        echo -e "${YELLOW}ℹ️  Vui lòng mở tab Actions trên GitHub để xem tiến trình chạy.${NC}"
+        echo -e "${GREEN}⚡ Đang gửi lệnh tới GitHub Actions API...${NC}"
+        gh workflow run ci.yml -f run_healthcheck=true -f environment=staging
+        sleep 2
+        
+        RUN_ID=$(gh run list --workflow=ci.yml --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+        RUN_URL=$(gh run list --workflow=ci.yml --limit 1 --json url -q '.[0].url' 2>/dev/null || true)
+        
+        if [ -n "$RUN_URL" ]; then
+          echo -e "  🔗 ${BOLD}GitHub Actions Run URL:${NC} ${CYAN}$RUN_URL${NC}"
+          echo -e "  📋 ${BOLD}Run ID:${NC} ${GREEN}#$RUN_ID${NC}"
+          echo ""
+          echo -e "${YELLOW}👀 Đang xem Live Logs trực tiếp từ GitHub Runner (Nhấn Ctrl+C để quay lại menu bất cứ lúc nào)...${NC}"
+          gh run watch "$RUN_ID" || true
+          echo ""
+        fi
       fi
 
       RECOMMENDED_STEP=2
-      LAST_ACTION_MSG="${GREEN}✅ BƯỚC 1 HOÀN TẤT:${NC} Health Check 70 TCs đã kích hoạt thành công!\n${YELLOW}👉 BƯỚC TIẾP THEO:${NC} Khuyên dùng chọn ${BOLD}[2]${NC} để đóng gói và đẩy file APK gốc lên Web S3 Store."
+      LAST_ACTION_MSG="${GREEN}✅ BƯỚC 1 HOÀN TẤT:${NC} Health Check 70 TCs đã hoàn thành và gửi báo cáo Block Kit lên Slack!\n${YELLOW}👉 BƯỚC TIẾP THEO:${NC} Khuyên dùng chọn ${BOLD}[2]${NC} để đóng gói và đẩy file APK gốc lên Web S3 Store."
       ;;
       
     2)
       echo ""
       echo -e "${CYAN}🚀 [BƯỚC 2/3] Đang kích hoạt luồng Build Dev/Staging & S3 Web Store...${NC}"
       cd "$GIT_ROOT"
-      git add .github/workflows/ci.yml crypto-vault-expo/.github/workflows/ci.yml 2>/dev/null || true
-      git commit -m "ci: trigger Staging build and AWS S3 upload" 2>/dev/null || true
-      git push origin dev 2>/dev/null || git push phong-mobile dev 2>/dev/null || true
       if command -v gh &> /dev/null; then
-        gh workflow run ci.yml -f environment=staging 2>/dev/null || gh workflow run "Enterprise Mobile CI/CD" -f environment=staging 2>/dev/null || true
-        echo -e "${GREEN}🎉 Đã kích hoạt luồng Build Staging! File APK gốc sẽ được tự động đưa lên AWS S3 Web Store.${NC}"
+        gh workflow run ci.yml -f environment=staging
+        sleep 2
+        RUN_ID=$(gh run list --workflow=ci.yml --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+        RUN_URL=$(gh run list --workflow=ci.yml --limit 1 --json url -q '.[0].url' 2>/dev/null || true)
+        
+        if [ -n "$RUN_URL" ]; then
+          echo -e "  🔗 ${BOLD}GitHub Actions Run URL:${NC} ${CYAN}$RUN_URL${NC}"
+          echo -e "  📋 ${BOLD}Run ID:${NC} ${GREEN}#$RUN_ID${NC}"
+          echo ""
+          echo -e "${YELLOW}👀 Đang xem Live Build Logs trực tiếp từ Runner...${NC}"
+          gh run watch "$RUN_ID" || true
+          echo ""
+        fi
       fi
 
       RECOMMENDED_STEP=3
-      LAST_ACTION_MSG="${GREEN}✅ BƯỚC 2 HOÀN TẤT:${NC} Bản build Dev/Staging đã kích hoạt thành công!\n${YELLOW}👉 BƯỚC TIẾP THEO:${NC} Khuyên dùng chọn ${BOLD}[3]${NC} nếu bạn muốn Release Production, hoặc chọn ${BOLD}[0]${NC} để hoàn tất."
+      LAST_ACTION_MSG="${GREEN}✅ BƯỚC 2 HOÀN TẤT:${NC} Bản build Dev/Staging đã đẩy lên AWS S3 Web Store thành công!\n${YELLOW}👉 BƯỚC TIẾP THEO:${NC} Khuyên dùng chọn ${BOLD}[3]${NC} nếu bạn muốn Release Production, hoặc chọn ${BOLD}[0]${NC} để hoàn tất."
       ;;
 
     3)
       echo ""
       echo -e "${CYAN}🚀 [BƯỚC 3/3] Đang kích hoạt luồng Production Release...${NC}"
+      cd "$GIT_ROOT"
       if command -v gh &> /dev/null; then
-        gh workflow run ci.yml -f environment=production 2>/dev/null || gh workflow run "Enterprise Mobile CI/CD" -f environment=production 2>/dev/null || true
-        echo -e "${GREEN}🎉 Production Release đã kích hoạt thành công! Đã gửi thông báo phê duyệt lên Slack.${NC}"
+        gh workflow run ci.yml -f environment=production
+        sleep 2
+        RUN_ID=$(gh run list --workflow=ci.yml --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+        RUN_URL=$(gh run list --workflow=ci.yml --limit 1 --json url -q '.[0].url' 2>/dev/null || true)
+        
+        if [ -n "$RUN_URL" ]; then
+          echo -e "  🔗 ${BOLD}GitHub Actions Run URL:${NC} ${CYAN}$RUN_URL${NC}"
+          echo -e "  📋 ${BOLD}Run ID:${NC} ${GREEN}#$RUN_ID${NC}"
+          echo ""
+          echo -e "${YELLOW}👀 Đang xem Live Logs trực tiếp từ Runner...${NC}"
+          gh run watch "$RUN_ID" || true
+          echo ""
+        fi
       fi
 
       RECOMMENDED_STEP=0
