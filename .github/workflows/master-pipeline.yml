@@ -23,6 +23,19 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: false
+      TEAMS_WEBHOOK_URL:
+        required: false
+      AWS_ACCESS_KEY_ID:
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        required: false
+      AWS_S3_BUCKET:
+        required: false
+      AWS_REGION:
+        required: false
 
 permissions:
   contents: write
