@@ -81,9 +81,26 @@ if [ "$HAS_EXPO" = true ]; then
   fi
 fi
 
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
+BRANCH_SLUG=$(echo "$CURRENT_BRANCH" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+
+if [ "$CURRENT_BRANCH" = "main" ] || [[ "$CURRENT_BRANCH" =~ ^v ]]; then
+  ARTIFACT_RULE="trustvault-v${APP_VERSION}-release.apk (Production)"
+  S3_FOLDER="downloads/android/production/"
+elif [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "staging" ]; then
+  ARTIFACT_RULE="trustvault-staging-v${APP_VERSION}-b<RUN>.apk (Staging)"
+  S3_FOLDER="downloads/android/staging/"
+else
+  ARTIFACT_RULE="trustvault-${BRANCH_SLUG}-b<RUN>.apk (Feature/Fix)"
+  S3_FOLDER="downloads/android/branches/${BRANCH_SLUG}/"
+fi
+
 echo -e "  🏷️  Tên App:         ${GREEN}${BOLD}$APP_NAME${NC}"
 echo -e "  📌 Version:         ${GREEN}$APP_VERSION${NC}"
 echo -e "  🧩 Kiến trúc:       ${YELLOW}${BOLD}$PROJECT_TYPE${NC}"
+echo -e "  🌿 Nhánh hiện tại:  ${CYAN}${BOLD}$CURRENT_BRANCH${NC} (Slug: $BRANCH_SLUG)"
+echo -e "  🏷️  Branch Rule:     ${GREEN}$ARTIFACT_RULE${NC}"
+echo -e "  📦 Thư mục S3:      ${YELLOW}$S3_FOLDER${NC}"
 echo -e "  📁 Git Root:        ${CYAN}$GIT_ROOT${NC}"
 echo ""
 
