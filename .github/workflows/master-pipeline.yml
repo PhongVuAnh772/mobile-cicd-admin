@@ -215,7 +215,6 @@ jobs:
     if: github.event_name != 'pull_request' && inputs.environment == 'production'
     needs: [build-android]
     runs-on: ubuntu-latest
-    environment: production
     steps:
       - name: Production Release Approved Notification
         run: |
