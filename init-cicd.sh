@@ -122,16 +122,30 @@ run_local_checks() {
     return 0
   }
 
+  echo -e "  ${CYAN}📋 [PHASE 1: CI Pipeline & Code Quality]${NC}"
   check_step "TC-01" "package.json & lockfile tồn tại" "[ -f '$PKG_FILE' ]"
   check_step "TC-02" "Node.js environment (v20/v22)" "node -v"
-  check_step "TC-03" "TypeScript config (tsconfig.json)" "[ -f 'tsconfig.json' ] || [ -f '$GIT_ROOT/tsconfig.json' ]"
+  check_step "TC-03" "TypeScript config (tsconfig.json)" "[ -f 'tsconfig.json' ] || [ -f '$GIT_ROOT/tsconfig.json' ] || [ -f '$GIT_ROOT/crypto-vault-expo/tsconfig.json' ]"
   check_step "TC-04" "ESLint config & scripts" "[ -f '.eslintrc.js' ] || [ -f '.eslintrc.json' ] || grep -q 'eslint' '$PKG_FILE'"
-  check_step "TC-05" "CI/CD YAML syntax hợp lệ" "python3 -c 'import yaml; yaml.safe_load(open(\"$GIT_ROOT/.github/workflows/ci.yml\"))'"
-  check_step "TC-06" ".gitignore che chắn secrets (.env, keystore)" "grep -q '\.env' '$GIT_ROOT/.gitignore' 2>/dev/null || grep -q '\.env' .gitignore 2>/dev/null"
-  check_step "TC-07" "Android directory & Gradle build scripts" "[ -d 'android' ] || [ -d '$GIT_ROOT/android' ] || [ '$HAS_EXPO' = true ]"
-  check_step "TC-08" "AWS S3 Deploy scripts (scripts/deploy-aws-s3.py)" "[ -f 'scripts/deploy-aws-s3.py' ] || [ -f '$GIT_ROOT/scripts/deploy-aws-s3.py' ]"
-  check_step "TC-09" "Web Distribution Portal assets (index.html, builds.json)" "[ -f 'app-distribution-web/index.html' ] || [ -f '$GIT_ROOT/app-distribution-web/index.html' ]"
-  check_step "TC-10" "Git repository & remotes connected" "git status"
+  check_step "TC-05" "Babel/Metro compiler configuration" "[ -f 'babel.config.js' ] || [ -f 'metro.config.js' ] || [ -f '$GIT_ROOT/crypto-vault-expo/metro.config.js' ]"
+  check_step "TC-06" "Source code directory (src/ or app/)" "[ -d 'src' ] || [ -d 'app' ] || [ -d '$GIT_ROOT/crypto-vault-expo/src' ]"
+
+  echo -e "  ${CYAN}🛡️ [PHASE 2: Security & Secret Protection]${NC}"
+  check_step "TC-07" ".gitignore che chắn secrets (.env, keystore)" "grep -q '\.env' '$GIT_ROOT/.gitignore' 2>/dev/null || grep -q '\.env' .gitignore 2>/dev/null"
+  check_step "TC-08" "Không có AWS Keys hardcoded trong source code" "! grep -rn 'AKIA[A-Z0-9]\{16\}' --include='*.ts' --include='*.tsx' --include='*.js' '$GIT_ROOT' 2>/dev/null | grep -v node_modules | grep -q 'AKIA'"
+
+  echo -e "  ${CYAN}🎯 [PHASE 3: Triggers & Workflow Format]${NC}"
+  check_step "TC-09" "CI/CD YAML syntax hợp lệ" "python3 -c 'import yaml; yaml.safe_load(open(\"$GIT_ROOT/.github/workflows/ci.yml\"))'"
+  check_step "TC-10" "workflow_dispatch & healthcheck parameter" "grep -q 'run_healthcheck' '$GIT_ROOT/.github/workflows/ci.yml'"
+
+  echo -e "  ${CYAN}📱 [PHASE 4: Mobile Architecture & Build]${NC}"
+  check_step "TC-11" "Android directory & Gradle build scripts" "[ -d 'android' ] || [ -d '$GIT_ROOT/android' ] || [ '$HAS_EXPO' = true ]"
+  check_step "TC-12" "Expo app configuration (app.json / app.config.js)" "[ -f 'app.json' ] || [ -f '$GIT_ROOT/crypto-vault-expo/app.json' ]"
+
+  echo -e "  ${CYAN}☁️ [PHASE 5: AWS S3 & Web Store Deployment]${NC}"
+  check_step "TC-13" "AWS S3 Deploy scripts (scripts/deploy-aws-s3.py)" "[ -f 'scripts/deploy-aws-s3.py' ] || [ -f '$GIT_ROOT/scripts/deploy-aws-s3.py' ] || [ -f '$GIT_ROOT/crypto-vault-expo/scripts/deploy-aws-s3.py' ]"
+  check_step "TC-14" "Web Distribution Portal assets (index.html, builds.json)" "[ -f 'app-distribution-web/index.html' ] || [ -f '$GIT_ROOT/app-distribution-web/index.html' ] || [ -f '$GIT_ROOT/crypto-vault-expo/app-distribution-web/index.html' ]"
+  check_step "TC-15" "Git repository & remotes connected" "git status"
 
   echo ""
   echo -e "  📊 Kết quả kiểm tra nhanh: ${GREEN}$PASS_COUNT PASS${NC} | ${YELLOW}$WARN_COUNT WARN${NC} | ${RED}$FAIL_COUNT FAIL${NC}"
