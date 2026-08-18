@@ -174,7 +174,8 @@ while true; do
     echo -e "    ${CYAN}3.${NC} 🏪 Kích hoạt Production Release (Gửi thông báo Approve lên Slack)"
   fi
 
-  echo -e "    ${CYAN}4.${NC} 🔍 Chạy lại kiểm tra nhanh Test Cases tại chỗ (Local Re-check)"
+  echo -e "    ${CYAN}4.${NC} 🔍 Chạy lại kiểm tra nhanh Test Cases tại chỗ (Local Re-check)
+    ${CYAN}5.${NC} 🛡️ Thiết lập GitHub Branch Protection & Org Rulesets (Admin)"
 
   if [ "$RECOMMENDED_STEP" -eq 0 ]; then
     echo -e "  ${GREEN}${BOLD}▶ 0. 🚪 Hoàn tất quy trình & Thoát Terminal${NC}  ${YELLOW}${BOLD}⭐ [KHUYÊN DÙNG THOÁT]${NC}"
@@ -183,7 +184,7 @@ while true; do
   fi
   echo ""
 
-  PROMPT_TEXT="Nhập lựa chọn [0-4] (Mặc định: $RECOMMENDED_STEP): "
+  PROMPT_TEXT="Nhập lựa chọn [0-5] (Mặc định: $RECOMMENDED_STEP): "
   if [ -t 0 ]; then
     read -p "$(echo -e ${YELLOW}"$PROMPT_TEXT"${NC})" ACTION_CHOICE
   elif [ -c /dev/tty ]; then
@@ -275,6 +276,19 @@ while true; do
       echo ""
       run_local_checks
       LAST_ACTION_MSG="${CYAN}ℹ️ Đã chạy lại kiểm tra cục bộ.${NC}"
+      ;;
+
+    5)
+      echo ""
+      SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      if [ -f "$SCRIPT_DIR/setup-github-rules.sh" ]; then
+        echo -e "${CYAN}🛡️ Đang chạy setup-github-rules.sh...${NC}"
+        chmod +x "$SCRIPT_DIR/setup-github-rules.sh"
+        bash "$SCRIPT_DIR/setup-github-rules.sh" || true
+      else
+        echo -e "${YELLOW}⚠️ Không tìm thấy setup-github-rules.sh tại $SCRIPT_DIR${NC}"
+      fi
+      LAST_ACTION_MSG="${GREEN}✅ Đã chạy xong trình thiết lập GitHub Rulesets!${NC}"
       ;;
 
     0|q|Q|exit|quit)
