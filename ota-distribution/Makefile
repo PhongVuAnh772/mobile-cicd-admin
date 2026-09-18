@@ -42,6 +42,8 @@ help:
 	@echo "  make distributed-ios-dev      : Build & đẩy bản Dev iOS lên OTA"
 	@echo "  make distributed-ios-beta     : Build & đẩy bản Beta iOS lên OTA"
 	@echo "  make distributed-ios-prod     : Build & đẩy bản Prod iOS lên OTA"
+	@echo "  make testflight               : Build & đẩy IPA lên Apple TestFlight"
+	@echo "  make production-ios           : Đẩy App Store Production Review"
 	@echo "--- 🤖 ANDROID DISTRIBUTION ------------------------------------------"
 	@echo "  make distributed-android-dev  : Build & đẩy bản Dev Android APK lên OTA"
 	@echo "  make distributed-android-beta : Build & đẩy bản Beta Android APK lên OTA"
@@ -109,6 +111,18 @@ distributed-ios-prod:
 	cd ios && BUILD_ENV="PRO" FLAVOR="pro" fastlane app_distribution || \
 	(echo "⚡ Fastlane fallback: Đang upload qua CLI script..." && \
 	../ota-distribution/scripts/upload-build.sh --env "prod" --flavor "pro" -m "$(MESSAGE)" -a "$(AUTHOR)" -b "$(REF_NAME)")
+
+.PHONY: testflight
+testflight:
+	@echo "✈️ [IOS TESTFLIGHT] Building & Uploading to Apple TestFlight..."
+	make pod
+	cd ios && fastlane beta_testflight
+
+.PHONY: production-ios
+production-ios:
+	@echo "👑 [IOS PRODUCTION] Building & Uploading to Apple App Store..."
+	make pod
+	cd ios && fastlane update_release
 
 ### ANDROID __________________________
 .PHONY: distributed-android-dev

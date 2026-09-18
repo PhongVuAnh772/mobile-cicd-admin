@@ -2,6 +2,15 @@ default_platform(:ios)
 
 platform :ios do
 
+  def get_workspace
+    Dir.glob("*.xcworkspace").first || Dir.glob("../ios/*.xcworkspace").first || "{{PROJECT_NAME}}.xcworkspace"
+  end
+
+  def get_scheme
+    xcodeproj = Dir.glob("*.xcodeproj").first || Dir.glob("../ios/*.xcodeproj").first
+    xcodeproj ? File.basename(xcodeproj, ".xcodeproj") : "{{PROJECT_NAME}}"
+  end
+
   # ============================================================================
   # 🚀 FIRST RELEASE — Chỉ dùng khi app CHƯA CÓ trên App Store
   # ============================================================================
@@ -15,8 +24,8 @@ platform :ios do
     match(type: "appstore", readonly: false)
 
     build_app(
-      workspace: "{{PROJECT_NAME}}.xcworkspace",
-      scheme: "{{PROJECT_NAME}}",
+      workspace: get_workspace,
+      scheme: get_scheme,
       configuration: "Release",
       export_method: "app-store",
       clean: true,
@@ -52,12 +61,12 @@ platform :ios do
     # Tăng build number tự động
     increment_build_number(
       build_number: latest_testflight_build_number + 1,
-      xcodeproj: "{{PROJECT_NAME}}.xcodeproj"
+      xcodeproj: Dir.glob("*.xcodeproj").first || "{{PROJECT_NAME}}.xcodeproj"
     )
 
     build_app(
-      workspace: "{{PROJECT_NAME}}.xcworkspace",
-      scheme: "{{PROJECT_NAME}}",
+      workspace: get_workspace,
+      scheme: get_scheme,
       configuration: "Release",
       export_method: "app-store",
       clean: true,
@@ -90,8 +99,8 @@ platform :ios do
     match(type: "adhoc", readonly: true)
 
     build_app(
-      workspace: "{{PROJECT_NAME}}.xcworkspace",
-      scheme: "{{PROJECT_NAME}}",
+      workspace: get_workspace,
+      scheme: get_scheme,
       configuration: "Release",
       export_method: "ad-hoc",
       output_directory: "build"
@@ -154,6 +163,44 @@ platform :ios do
       "--form-string", "branch=#{branch}"
     )
     UI.success("🎉 Đã phân phối bản IPA (#{build_env}) lên OTA Portal thành công!")
+  end
+
+  # ============================================================================
+  # ✈️ LANE :BETA_TESTFLIGHT — Upload lên TestFlight cho Tester & QA
+  # ============================================================================
+  desc "✈️ BETA_TESTFLIGHT: Build & Upload IPA lên Apple TestFlight"
+  lane :beta_testflight do
+    if ENV['APP_STORE_CONNECT_API_KEY_KEY']
+      app_store_connect_api_key(
+        key_id: ENV['APP_STORE_CONNECT_API_KEY_KEY_ID'],
+        issuer_id: ENV['APP_STORE_CONNECT_API_KEY_ISSUER_ID'],
+        key_content: ENV['APP_STORE_CONNECT_API_KEY_KEY']
+      )
+    end
+
+    ipa_files = Dir.glob("build/*.ipa") + Dir.glob("*.ipa")
+    ipa_path = ipa_files.first
+
+    unless ipa_path
+      UI.header("🔨 Đang đóng gói IPA cho TestFlight...")
+      build_app(
+        workspace: get_workspace,
+        scheme: get_scheme,
+        configuration: "Release",
+        export_method: "app-store",
+        output_directory: "build"
+      )
+      ipa_path = Dir.glob("build/*.ipa").first
+    end
+
+    UI.user_error!("❌ Không tìm thấy file .ipa để upload TestFlight!") unless ipa_path
+
+    upload_to_testflight(
+      ipa: ipa_path,
+      skip_waiting_for_build_processing: true,
+      changelog: ENV['MESSAGE'] || "Bản cập nhật TestFlight từ CI/CD"
+    )
+    UI.success("🎉 Đã đẩy IPA lên TestFlight thành công!")
   end
 
   # ============================================================================

@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: "."
+      build_ios:
+        description: "Kích hoạt build iOS trên macOS runner (true | false)"
+        required: false
+        type: boolean
+        default: false
     secrets:
       SLACK_WEBHOOK_URL:
         required: false
@@ -52,6 +57,22 @@ on:
       GPLAY_SERVICE_ACCOUNT_JSON:
         required: false
       OTA_SERVER_URL:
+        required: false
+      APP_STORE_CONNECT_API_KEY_KEY:
+        required: false
+      APP_STORE_CONNECT_API_KEY_KEY_ID:
+        required: false
+      APP_STORE_CONNECT_API_KEY_ISSUER_ID:
+        required: false
+      APPLE_CERTIFICATE_BASE64:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      PROVISIONING_PROFILE_BASE64:
+        required: false
+      MATCH_PASSWORD:
+        required: false
+      MATCH_GIT_URL:
         required: false
 
 permissions:
@@ -224,6 +245,112 @@ jobs:
           if-no-files-found: warn
 
   # ──────────────────────────────────────────────────────────────────────────
+  # 3b. BUILD — IOS RELEASE & TESTFLIGHT (macOS Runner)
+  # ──────────────────────────────────────────────────────────────────────────
+  build-ios:
+    name: "🍏 Build iOS Release & TestFlight"
+    if: github.event_name != 'pull_request' && (inputs.build_ios == true || startsWith(github.ref, 'refs/tags/v'))
+    needs: [ci-checks]
+    runs-on: macos-14
+    steps:
+      - name: Checkout Consumer App Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Setup Ruby & Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Resolve Project Root & Dependencies
+        run: |
+          PROJECT_ROOT="${{ inputs.project_path }}"
+          if [ "$PROJECT_ROOT" = "." ] && [ ! -f "package.json" ]; then
+            FOUND_PKG=$(find . -maxdepth 3 -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | head -n 1)
+            [ -n "$FOUND_PKG" ] && PROJECT_ROOT=$(dirname "$FOUND_PKG")
+          fi
+          echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
+          cd "$PROJECT_ROOT"
+          yarn install --frozen-lockfile 2>/dev/null || yarn install || npm install
+
+      - name: CocoaPods Install
+        run: |
+          cd "$PROJECT_ROOT"
+          if [ -d "ios" ]; then
+            cd ios
+            pod install || pod install --repo-update
+          fi
+
+      - name: Setup Apple Certificates & Profiles (if provided)
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE_BASE64" ]; then
+            echo "🔑 Importing Apple Distribution Certificate..."
+            CERT_PATH=/tmp/build_cert.p12
+            echo "$APPLE_CERTIFICATE_BASE64" | base64 -d > "$CERT_PATH"
+            security create-keychain -p "" build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p "" build.keychain
+            security import "$CERT_PATH" -k build.keychain -P "${APPLE_CERTIFICATE_PASSWORD:-}" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+            rm -f "$CERT_PATH"
+          fi
+          if [ -n "$PROVISIONING_PROFILE_BASE64" ]; then
+            echo "📋 Installing Provisioning Profile..."
+            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+            echo "$PROVISIONING_PROFILE_BASE64" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          fi
+
+      - name: Build iOS IPA & Deploy
+        env:
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          OTA_SERVER_URL: ${{ secrets.OTA_SERVER_URL }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          cd "$PROJECT_ROOT"
+          if [ ! -d "ios" ]; then
+            echo "❌ Không tìm thấy thư mục ios/ trong dự án!"
+            exit 1
+          fi
+          cd ios
+
+          if [ -f "fastlane/Fastfile" ] || [ -f "Fastfile" ]; then
+            if [ "$ENVIRONMENT" = "production" ] && [ -n "$APP_STORE_CONNECT_API_KEY_KEY" ]; then
+              echo "🚀 Đang build & upload TestFlight / App Store..."
+              bundle exec fastlane beta_testflight || fastlane beta_testflight
+            else
+              echo "📦 Đang build Ad-Hoc / OTA Distribution..."
+              bundle exec fastlane app_distribution || fastlane app_distribution || \
+              (echo "⚡ Fallback xcodebuild..." && \
+               xcodebuild -workspace *.xcworkspace -scheme * -configuration Release -archivePath build/App.xcarchive archive -allowProvisioningUpdates || true)
+            fi
+          fi
+
+      - name: Upload iOS IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-ipa
+          path: "**/ios/build/*.ipa"
+          if-no-files-found: warn
+
+  # ──────────────────────────────────────────────────────────────────────────
   # 4. DEPLOY — AWS S3 & OTA WEB STORE (Dev/Staging only)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-s3:
@@ -366,7 +493,7 @@ jobs:
   notify:
     name: "📢 Admin Reusable Notify"
     runs-on: ubuntu-latest
-    needs: [ci-checks, build-android]
+    needs: [ci-checks, build-android, build-ios]
     if: always() && github.event_name != 'pull_request'
     steps:
       - name: Send Slack & Teams Rich Card with Buttons
@@ -377,6 +504,7 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           CI_RESULT: ${{ needs.ci-checks.result }}
           BUILD_RESULT: ${{ needs.build-android.result }}
+          IOS_RESULT: ${{ needs.build-ios.result }}
           ACTOR: ${{ github.actor }}
           COMMIT_SHA: ${{ github.sha }}
           ENVIRONMENT: ${{ inputs.environment }}
@@ -387,12 +515,16 @@ jobs:
           COLOR="#36a64f"
           EMOJI="✅"
           STYLE="primary"
-          if [ "$CI_RESULT" = "failure" ] || [ "$BUILD_RESULT" = "failure" ]; then
+          if [ "$CI_RESULT" = "failure" ] || [ "$BUILD_RESULT" = "failure" ] || [ "$IOS_RESULT" = "failure" ]; then
             STATUS="FAILURE"
             COLOR="#E01E5A"
             EMOJI="❌"
             STYLE="danger"
-          elif [ "$CI_RESULT" = "skipped" ] || [ "$BUILD_RESULT" = "skipped" ]; then
+          elif [ "$CI_RESULT" = "cancelled" ] || [ "$BUILD_RESULT" = "cancelled" ] || [ "$IOS_RESULT" = "cancelled" ]; then
+            STATUS="CANCELLED"
+            COLOR="#808080"
+            EMOJI="⏹️"
+          elif [ "$CI_RESULT" = "skipped" ] && [ "$BUILD_RESULT" = "skipped" ] && ([ "$IOS_RESULT" = "skipped" ] || [ -z "$IOS_RESULT" ]); then
             STATUS="SKIPPED"
             COLOR="#ECB22E"
             EMOJI="⏭️"
@@ -402,7 +534,7 @@ jobs:
 
           echo "📢 Preparing Rich Notification for $APP_NAME ($REF_NAME)..."
           echo "📌 Environment: $ENVIRONMENT"
-          echo "📌 CI: $CI_RESULT | Build: $BUILD_RESULT"
+          echo "📌 CI: $CI_RESULT | Android: $BUILD_RESULT | iOS: $IOS_RESULT"
 
           # ── 1. SLACK BLOCK KIT WITH BUTTONS ──
           if [ -n "$SLACK_WEBHOOK_URL" ]; then
@@ -424,7 +556,8 @@ jobs:
                         { "type": "mrkdwn", "text": "*🌍 Environment:*\n`'"$ENVIRONMENT"'`" },
                         { "type": "mrkdwn", "text": "*👤 Actor:*\n@'"$ACTOR"'" },
                         { "type": "mrkdwn", "text": "*🧪 CI Tests:*\n'"$CI_RESULT"'" },
-                        { "type": "mrkdwn", "text": "*📦 Build:*\n'"$BUILD_RESULT"'" }
+                        { "type": "mrkdwn", "text": "*🤖 Android Build:*\n'"$BUILD_RESULT"'" },
+                        { "type": "mrkdwn", "text": "*🍏 iOS Build:*\n'"$IOS_RESULT"'" }
                       ]
                     },
                     {
@@ -481,7 +614,8 @@ jobs:
                   { "name": "Branch / Tag", "value": "'"$REF_NAME"'" },
                   { "name": "Environment", "value": "'"$ENVIRONMENT"'" },
                   { "name": "CI Tests", "value": "'"$CI_RESULT"'" },
-                  { "name": "Build", "value": "'"$BUILD_RESULT"'" },
+                  { "name": "Android Build", "value": "'"$BUILD_RESULT"'" },
+                  { "name": "iOS Build", "value": "'"$IOS_RESULT"'" },
                   { "name": "Status", "value": "'"$STATUS"'" }
                 ],
                 "markdown": true

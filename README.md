@@ -17,13 +17,14 @@
 3. [Chuẩn bị trước khi triển khai (Làm 1 lần duy nhất)](#-chuẩn-bị-trước-khi-triển-khai-làm-1-lần-duy-nhất)
 4. [Hướng dẫn tích hợp vào một dự án mới (Onboarding Checklist)](#-hướng-dẫn-tích-hợp-vào-một-dự-án-mới-onboarding-checklist)
 5. [Checklist Đẩy Google Play Store (Android Release)](#-checklist-đẩy-google-play-store-android-release)
-6. [Checklist Phân phối OTA Web Distribution](#-checklist-phân-phối-ota-web-distribution)
-7. [Chi tiết các công cụ & Script cốt lõi](#-chi-tiết-các-công-cụ--script-cốt-lõi)
+6. [Checklist Đẩy App Store & TestFlight (iOS Release)](#-checklist-đẩy-app-store--testflight-ios-release)
+7. [Checklist Phân phối OTA Web Distribution](#-checklist-phân-phối-ota-web-distribution)
+8. [Chi tiết các công cụ & Script cốt lõi](#-chi-tiết-các-công-cụ--script-cốt-lõi)
    - [`setup-github-rules.sh` — Tự động hoá Governance & Teams](#1-setup-github-rulessh--tự-động-hoá-governance--teams)
    - [`init-cicd.sh` — Interactive CLI & 70 Test Cases Health Check](#2-init-cicdsh--interactive-cli--70-test-cases-health-check)
    - [`configs/Dangerfile.ts` — Trọng tài Review Pull Request](#3-dangerfilets--trọng-tài-review-pr-tự-động)
    - [`src/featureFlags.js` — DJB2 Deterministic User Bucketing](#4-featureflagsjs--rollout-theo-tỷ-lệ--kill-switch)
-8. [Các câu hỏi thường gặp (FAQ)](#-các-câu-hỏi-thường-gặp-faq)
+9. [Các câu hỏi thường gặp (FAQ)](#-các-câu-hỏi-thường-gặp-faq)
 
 ---
 
@@ -73,6 +74,7 @@ mobile-cicd-admin/
 └── configs/                            # 🔒 BỘ FILE CẤU HÌNH GỐC (BẢO MẬT TUYỆT ĐỐI)
     ├── Dangerfile.ts                   # Quy chuẩn review PR (Jira ticket, Lockfile, QR build...)
     ├── release.config.js               # Semantic Release tự động sinh version & Changelog
+    ├── Makefile                        # Bộ lệnh make cho React Native (Android + iOS)
     ├── android/
     │   └── fastlane/Fastfile           # Fastlane Android (Auto APK/AAB naming, Google Play)
     ├── ios/
@@ -103,8 +105,13 @@ mobile-cicd-admin/
     - [ ] `AWS_S3_BUCKET` & `AWS_REGION`: Tên bucket và region S3 lưu trữ bản build.
     - [ ] `ANDROID_KEYSTORE_BASE64`: Keystore ký số file AAB/APK.
     - [ ] `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`: Mật khẩu Keystore.
-    - [ ] `OTA_SERVER_URL`: Địa chỉ máy chủ OTA Web Portal (VD: `https://ota-distribution-v1.onrender.com`).
     - [ ] `GPLAY_SERVICE_ACCOUNT_JSON`: Service Account JSON của Google Cloud Console để đẩy Google Play Store.
+    - [ ] `APP_STORE_CONNECT_API_KEY_KEY`: Chuỗi Private Key `.p8` từ App Store Connect.
+    - [ ] `APP_STORE_CONNECT_API_KEY_KEY_ID`: Key ID của App Store Connect API.
+    - [ ] `APP_STORE_CONNECT_API_KEY_ISSUER_ID`: Issuer ID dạng UUID của App Store Connect API.
+    - [ ] `APPLE_CERTIFICATE_BASE64` & `APPLE_CERTIFICATE_PASSWORD`: Distribution Certificate `.p12` mã hoá Base64 & mật khẩu.
+    - [ ] `PROVISIONING_PROFILE_BASE64`: Mobile Provisioning Profile mã hoá Base64.
+    - [ ] `OTA_SERVER_URL`: Địa chỉ máy chủ OTA Web Portal (VD: `https://ota-distribution-v1.onrender.com`).
     - [ ] **Repository access**: Chọn **"All repositories"**.
 
 - [ ] **Bước 3: Chuẩn bị GitHub CLI trên máy Admin**
@@ -219,6 +226,65 @@ Quy trình chuẩn từng bước khi gắn CI/CD vào một ứng dụng mới 
   - [ ] Kích hoạt phát hành tự động:
     - [ ] Đẩy lên Internal Testing: `make internal`
     - [ ] Đẩy lên Production Draft: `make production-android` hoặc push tag `v1.0.0`.
+
+---
+
+## 🍏 Checklist Đẩy App Store & TestFlight (iOS Release)
+
+- [ ] **1. Kiểm tra cấu hình iOS Native**:
+  - [ ] Bundle Identifier (`bundle_id`) đã được đăng ký trên [Apple Developer Portal](https://developer.apple.com).
+  - [ ] Thư mục `ios/` đã cấu hình CocoaPods (`pod install` chạy thành công không có lỗi).
+  - [ ] `PrivacyInfo.xcprivacy` (Apple Privacy Manifest bắt buộc) đã được thêm vào Xcode target.
+  - [ ] Xcode Scheme và Workspace tồn tại hợp lệ (`*.xcworkspace` và `*.xcodeproj`).
+
+- [ ] **2. Cấu hình Signing Certificates & Profiles**:
+  - [ ] **Cách 1 (Khuyên dùng - Fastlane Match)**:
+    - [ ] `MATCH_GIT_URL`: URL kho git chứa chứng chỉ (repo private an toàn).
+    - [ ] `MATCH_PASSWORD`: Mật khẩu mã hoá Certificates repo.
+  - [ ] **Cách 2 (Import trực tiếp qua GitHub Secrets)**:
+    - [ ] `APPLE_CERTIFICATE_BASE64`: File chứng chỉ Distribution `.p12` được mã hoá Base64 (`base64 -i cert.p12 | pbcopy`).
+    - [ ] `APPLE_CERTIFICATE_PASSWORD`: Mật khẩu bảo vệ file `.p12`.
+    - [ ] `PROVISIONING_PROFILE_BASE64`: File Distribution Mobile Provision profile mã hoá Base64.
+
+- [ ] **3. Cấu hình App Store Connect API Key (Bắt buộc để upload tự động)**:
+  - [ ] Tạo API Key tại **App Store Connect** ➔ **Users and Access** ➔ **Integrations** ➔ **App Store Connect API** (Role: *App Manager* hoặc *Admin*).
+  - [ ] Tải file `AuthKey_XXXXXX.p8`.
+  - [ ] Thêm vào GitHub Secrets:
+    - [ ] `APP_STORE_CONNECT_API_KEY_KEY`: Toàn bộ nội dung chuỗi bí mật của file `.p8` (bắt đầu bằng `-----BEGIN PRIVATE KEY-----`).
+    - [ ] `APP_STORE_CONNECT_API_KEY_KEY_ID`: Key ID (10 ký tự, ví dụ `2X9R427N34`).
+    - [ ] `APP_STORE_CONNECT_API_KEY_ISSUER_ID`: Issuer ID dạng UUID (ví dụ `69a6de70-xxxx-xxxx-xxxx-xxxxxxxxxxxx`).
+
+- [ ] **4. Phân phối TestFlight (Testing & QA)**:
+  - [ ] Chạy lệnh cục bộ:
+    ```bash
+    make testflight m="Bản test Sprint 12 cho Internal Testers"
+    ```
+  - [ ] Hoặc kích hoạt qua GitHub Actions:
+    - [ ] Vào tab **Actions** ➔ Chọn **Enterprise Mobile CI/CD**.
+    - [ ] Nhấn **Run workflow** ➔ Tích chọn `build_ios: true` (hoặc push tag `v*.*.*`).
+  - [ ] File IPA được tự động đóng gói, mã hoá signing và tải lên Apple TestFlight trong vòng 10-15 phút.
+
+- [ ] **5. Phát hành App Store Chính thức (Production Release)**:
+  - [ ] **Lần đầu tiên phát hành**:
+    - [ ] Chạy `cd ios && fastlane first_release` (hoặc tải IPA từ GitHub Artifacts).
+    - [ ] Vào App Store Connect hoàn tất mô tả, từ khoá, ảnh chụp màn hình đa thiết bị (6.7" và 6.5" iPhone display).
+    - [ ] Khai báo App Privacy (Dữ liệu thu thập, mục đích sử dụng tương ứng với `PrivacyInfo.xcprivacy`).
+    - [ ] Bấm **Submit for Review** thủ công trên App Store Connect UI.
+  - [ ] **Các lần cập nhật tiếp theo (Update Releases)**:
+    - [ ] Chạy lệnh `make production-ios` hoặc gắn Git Tag chuẩn Semantic Version:
+      ```bash
+      git tag -a v1.0.0 -m "Release version 1.0.0"
+      git push origin v1.0.0
+      ```
+    - [ ] Fastlane tự động kích hoạt **Phased Rollout**:
+      - Ngày 1: 1% người dùng nhận update
+      - Ngày 2: 2%
+      - Ngày 3: 5%
+      - Ngày 4: 10%
+      - Ngày 5: 20%
+      - Ngày 6: 50%
+      - Ngày 7: 100% (Phát hành toàn bộ)
+    - [ ] Nếu phát hiện lỗi nghiêm trọng, Release Manager có thể Pause Phased Rollout ngay lập tức trên App Store Connect.
 
 ---
 
