@@ -387,6 +387,9 @@ jobs:
             exit 0
           fi
 
+          # Fallback default OTA Server nếu chưa cấu hình trong Secrets
+          OTA_SERVER_URL="${OTA_SERVER_URL:-https://ota-distribution-v1.onrender.com}"
+
           # 1. Đẩy lên OTA Distribution Server nếu có cấu hình OTA_SERVER_URL
           if [ -n "$OTA_SERVER_URL" ]; then
             echo "🚀 Đang tải APK lên OTA Distribution Server: $OTA_SERVER_URL..."
@@ -402,7 +405,7 @@ jobs:
 
           # 2. Đẩy lên AWS S3 Web Store nếu có S3 Credentials
           if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && [ -n "$AWS_S3_BUCKET" ]; then
-            export AWS_REGION="${AWS_REGION:-ap-southeast-1}"
+            export AWS_REGION="${AWS_REGION:-ap-southeast-2}"
             echo "🚀 Uploading $APP_NAME ($ENVIRONMENT) build to AWS S3 Bucket: $AWS_S3_BUCKET..."
 
             if [ -f "scripts/deploy-aws-s3.py" ]; then
