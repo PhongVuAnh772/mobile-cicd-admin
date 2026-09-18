@@ -277,6 +277,9 @@ jobs:
             NOTE="${COMMIT_MSG:-Bản build $ENVIRONMENT từ CI/CD}"
             curl -s -X POST "$OTA_SERVER_URL/api/ota/upload" \
               -F "file=@$SOURCE_APK" \
+              --form-string "appName=$APP_NAME" \
+              --form-string "platform=android" \
+              --form-string "bundleId=com.retroemulator" \
               --form-string "environment=$ENVIRONMENT" \
               --form-string "flavor=$ENVIRONMENT" \
               --form-string "message=$NOTE" \

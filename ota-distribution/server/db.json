@@ -109,6 +109,28 @@
       "sizeBytes": 0,
       "sizeMb": "0.00 MB",
       "createdAt": "2026-09-18T03:10:57.327Z"
+    },
+    "re-bf37aaa": {
+      "id": "re-bf37aaa",
+      "appName": "RetroEmulator",
+      "version": "1.0.0",
+      "buildNumber": "1",
+      "bundleId": "com.retroemulator",
+      "platform": "android",
+      "fileType": "apk",
+      "environment": "staging",
+      "flavor": "beta",
+      "message": "Bản build Game Platform RetroEmulator (Staging)",
+      "author": "PhongVuAnh772",
+      "branch": "main",
+      "fileUrl": "https://amzn-s3-cryptovault.s3.ap-southeast-2.amazonaws.com/builds/android/retroemulator--staging-bf37aaa.apk",
+      "plistUrl": "",
+      "installUrl": "https://amzn-s3-cryptovault.s3.ap-southeast-2.amazonaws.com/builds/android/retroemulator--staging-bf37aaa.apk",
+      "webInstallUrl": "https://ota-distribution-v1.onrender.com/ota/re-bf37aaa",
+      "qrCode": "data:image/png;base64,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",
+      "sizeBytes": 64851402,
+      "sizeMb": "61.85 MB",
+      "createdAt": "2026-09-18T07:12:25.349Z"
     }
   }
 }
