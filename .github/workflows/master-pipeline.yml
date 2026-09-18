@@ -75,11 +75,6 @@ on:
       MATCH_GIT_URL:
         required: false
 
-permissions:
-  contents: write
-  pull-requests: write
-  statuses: write
-
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
   # 1. CI — LINT, TYPE CHECK, UNIT TESTS (All branches & PRs)
