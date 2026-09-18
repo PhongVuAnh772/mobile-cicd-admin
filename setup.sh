@@ -107,8 +107,29 @@ rm -rf "$TARGET_DIR/.github"
 # ── Copy toàn bộ templates ──────────────────────────────────────────────────
 echo -e "${CYAN}📂 Sao chép template CI/CD vào dự án...${NC}"
 
-# Copy .github/
-cp -R "$SCRIPT_DIR/.github" "$TARGET_DIR/.github"
+# Copy .github/workflows/ci.yml (Centralized Reusable Admin Pipeline)
+mkdir -p "$TARGET_DIR/.github/workflows"
+cat << 'EOF' > "$TARGET_DIR/.github/workflows/ci.yml"
+name: "Enterprise Mobile CI/CD"
+
+on:
+  push:
+    branches: [main, dev]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Môi trường deploy (staging / production)"
+        required: false
+        default: "staging"
+
+jobs:
+  admin-pipeline:
+    uses: phong-mobile/mobile-cicd-admin/.github/workflows/master-pipeline.yml@main
+    secrets: inherit
+EOF
 
 # Copy config files
 cp "$TEMPLATE_DIR/.gitleaks.toml" "$TARGET_DIR/.gitleaks.toml" 2>/dev/null || true
@@ -190,30 +211,21 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo -e "${BOLD}📂 Cấu trúc đã tạo tại: ${CYAN}$TARGET_DIR${NC}"
 echo ""
-echo -e "  .github/"
-echo -e "  ├── CODEOWNERS"
-echo -e "  ├── dependabot.yml"
-echo -e "  ├── PULL_REQUEST_TEMPLATE.md"
-echo -e "  ├── actions/notify/action.yml            📢 Slack/Teams Notification"
-echo -e "  └── workflows/"
-echo -e "      ├── 01-mr-governance.yml              🛡️ Quality Gates (Jest 80%, Gitleaks)"
-echo -e "      ├── 02-e2e-preview-distribution.yml  📲 E2E & AWS S3 Ad-Hoc QR Code"
-echo -e "      ├── 03a-first-release-build.yml        🆕 Lần đầu lên Store (Thủ công)"
-echo -e "      ├── 03b-update-release-build.yml       🔄 Cập nhật định kỳ (Tag v*)"
-echo -e "      ├── 04-store-deployment.yml           🏪 Fastlane Snapshot & Rollout 1%"
-echo -e "      ├── 05-telemetry-auto-pause-hotfix.yml 🚨 Telemetry, OTA Hotfix, Rollback"
-echo -e "      ├── 06-white-label-matrix.yml         🏭 White-Label Build Matrix"
-echo -e "      └── 07-cert-expiration-monitor.yml     📅 Giám sát hạn chứng chỉ iOS/Android"
-echo -e "  .gitleaks.toml"
-echo -e "  Dangerfile.ts"
-echo -e "  release.config.js"
-echo -e "  setup-github-rules.sh                      🏛️ Automated Ruleset & Teams Setup"
-echo -e "  src/featureFlags.js                        🚩 Feature Flag Manager (DJB2 Hash)"
-echo -e "  src/config/featureFlags.json               🚩 Feature Flag Schema"
-echo -e "  src/__tests__/featureFlags.test.js        🧪 Unit Tests (Coverage 100%)"
-echo -e "  ios/PrivacyInfo.xcprivacy"
-echo -e "  ios/fastlane/Fastfile                      (first_release + update_release + adhoc_aws)"
-echo -e "  android/fastlane/Fastfile                  (first_release + update_release)"
+echo -e "  .github/
+  └── workflows/
+      └── ci.yml                                ⚡ Reusable Admin Pipeline Link
+  Makefile                                      📱 React Native Distribution & Store Commands
+  .gitleaks.toml                                🛡️ Secret Scan Configuration
+  Dangerfile.ts                                 🧪 Pull Request Governance
+  release.config.js                             📦 Semantic Release
+  setup-github-rules.sh                         🏛️ Automated Ruleset & Teams Setup
+  src/featureFlags.js                           🚩 Feature Flag Manager (DJB2 Hash)
+  src/config/featureFlags.json                  🚩 Feature Flag Schema
+  src/__tests__/featureFlags.test.js           🧪 Unit Tests (Coverage 100%)
+  ios/PrivacyInfo.xcprivacy                     🍏 Apple Privacy Manifest
+  ios/fastlane/Fastfile                         🍏 Fastlane iOS Lanes (OTA & Store)
+  android/fastlane/Fastfile                     🤖 Fastlane Android Lanes (OTA, Internal & Play Store)
+"
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BOLD}🎯 HƯỚNG DẪN SỬ DỤNG — CHỌN ĐÚNG LUỒNG:${NC}"

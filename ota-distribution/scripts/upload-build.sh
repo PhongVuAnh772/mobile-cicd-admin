@@ -43,6 +43,18 @@ while [[ "$#" -gt 0 ]]; do
     --version=*) VERSION="${1#*=}" ;;
     --build-num) BUILD_NUM="$2"; shift ;;
     --build-num=*) BUILD_NUM="${1#*=}" ;;
+    -h|--help)
+      echo "📱 OTA Build Upload CLI Tool"
+      echo "Cách dùng: $0 [options]"
+      echo "  -f, --file FILE       Đường dẫn file .ipa, .apk, hoặc .aab"
+      echo "  -e, --env ENV         Môi trường: dev | beta | prod (mặc định: dev)"
+      echo "  --flavor FLAVOR       Flavor ứng dụng: dev | beta | pro (mặc định: theo env)"
+      echo "  -m, --message MSG     Ghi chú bản build (VD: -m=\"Gửi bản dev cho @TE_HauTV\")"
+      echo "  -a, --author AUTHOR   Người build / author tag (VD: @TE_HauTV)"
+      echo "  -b, --branch BRANCH   Tên nhánh Git (mặc định: nhánh hiện tại)"
+      echo "  -s, --server URL      Địa chỉ OTA Server (mặc định: http://localhost:3000)"
+      exit 0
+      ;;
     *) echo "⚠️ Tham số không xác định: $1" ;;
   esac
   shift

@@ -87,6 +87,28 @@
       "sizeBytes": 29,
       "sizeMb": "0.00 MB",
       "createdAt": "2026-09-18T02:26:37.958Z"
+    },
+    "f1IbzV8rjs": {
+      "id": "f1IbzV8rjs",
+      "appName": "RetroEmulator",
+      "version": "1.0.0",
+      "buildNumber": "1",
+      "bundleId": "com.app",
+      "platform": "android",
+      "fileType": "apk",
+      "environment": "dev",
+      "flavor": "dev",
+      "message": "Bản test Game Platform RetroEmulator cho @TE_HauTV",
+      "author": "@TE_HauTV",
+      "branch": "main",
+      "fileUrl": "https://amzn-s3-cryptovault.s3.ap-southeast-2.amazonaws.com/ota/1789701054415-test-gameplatform.apk",
+      "plistUrl": "",
+      "installUrl": "https://amzn-s3-cryptovault.s3.ap-southeast-2.amazonaws.com/ota/1789701054415-test-gameplatform.apk",
+      "webInstallUrl": "https://ota-distribution-v1.onrender.com/ota/f1IbzV8rjs",
+      "qrCode": "data:image/png;base64,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",
+      "sizeBytes": 0,
+      "sizeMb": "0.00 MB",
+      "createdAt": "2026-09-18T03:10:57.327Z"
     }
   }
 }
