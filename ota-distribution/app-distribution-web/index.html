@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Distribution Portal - Phân Phối Ứng Dụng Nội Bộ</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- QRCode.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- Sidebar Drawer (Cây thư mục Tree View) -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">
+          <span>🚀 AppStore S3</span>
+          <span class="brand-badge">AWS S3</span>
+        </div>
+      </div>
+
+      <div class="sidebar-search">
+        <input type="text" id="searchInput" class="search-input" placeholder="Tìm kiếm app, version...">
+      </div>
+
+      <div class="tree-container" id="treeView">
+        <div style="padding: 16px; color: #9CA3AF; font-size: 0.84rem;">Đang tải cây dữ liệu...</div>
+      </div>
+    </aside>
+
+    <!-- Main Content Panel (Dynamic Rendering) -->
+    <main class="main-wrapper">
+      
+      <!-- Top Navbar -->
+      <nav class="top-navbar">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <button class="toggle-drawer-btn" id="toggleDrawerBtn" title="Đóng/Mở Sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="nav-breadcrumbs" id="breadcrumbs">
+            <span>Đang tải...</span>
+          </div>
+        </div>
+
+        <div style="font-size: 0.82rem; color: #9CA3AF; font-weight: 500;">
+          AWS S3 Store Active
+        </div>
+      </nav>
+
+      <!-- Concept Container -->
+      <div class="concept-container">
+        
+        <!-- Centered Hero Card (Top Area) -->
+        <section class="hero-card" id="heroCard">
+          <img id="heroAppIcon" src="assets/images/icon_app.png" alt="App Icon" class="app-main-icon">
+          
+          <h1 id="heroAppTitle" class="app-main-title">LOADING...</h1>
+          
+          <div id="heroMetaPill" class="app-meta-pill">
+            Đang nạp dữ liệu phiên bản...
+          </div>
+          
+          <div id="heroUploadDate" class="app-upload-date">
+            Upload Date: --/--/--
+          </div>
+          
+          <!-- Dynamic QR Code Container -->
+          <div class="qr-code-box">
+            <div id="qrcodeCanvas"></div>
+          </div>
+          
+          <!-- Big Orange CTA Button -->
+          <a id="heroDownloadBtn" href="#" class="btn-download-primary" target="_blank">
+            Download and Install
+          </a>
+        </section>
+
+        <!-- Build History List (Bottom Area) -->
+        <section>
+          <div class="history-section-title">
+            <span>Lịch sử các phiên bản</span>
+            <span id="historyCountBadge" style="font-weight: 400; font-size: 0.8rem;">0 bản build</span>
+          </div>
+
+          <div id="historyList" class="history-list">
+            <!-- Dynamically populated build history items -->
+          </div>
+        </section>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast-notification">Notification text</div>
+
+  <script src="app.js"></script>
+</body>
+</html>

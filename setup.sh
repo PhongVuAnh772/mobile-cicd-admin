@@ -114,6 +114,7 @@ cp -R "$SCRIPT_DIR/.github" "$TARGET_DIR/.github"
 cp "$TEMPLATE_DIR/.gitleaks.toml" "$TARGET_DIR/.gitleaks.toml" 2>/dev/null || true
 cp "$TEMPLATE_DIR/Dangerfile.ts" "$TARGET_DIR/Dangerfile.ts" 2>/dev/null || true
 cp "$TEMPLATE_DIR/release.config.js" "$TARGET_DIR/release.config.js" 2>/dev/null || true
+cp "$TEMPLATE_DIR/Makefile" "$TARGET_DIR/Makefile" 2>/dev/null || true
 
 # Copy Automated Rules Setup Script
 if [ -f "$SCRIPT_DIR/setup-github-rules.sh" ]; then

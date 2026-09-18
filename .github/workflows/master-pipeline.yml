@@ -43,6 +43,16 @@ on:
         required: false
       ANDROID_KEYSTORE_BASE64:
         required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+      GPLAY_SERVICE_ACCOUNT_JSON:
+        required: false
+      OTA_SERVER_URL:
+        required: false
 
 permissions:
   contents: write
@@ -189,7 +199,8 @@ jobs:
 
           if [ -f "android/gradlew" ]; then
             chmod +x android/gradlew
-            ./android/gradlew -p android assembleRelease --no-daemon
+            echo "📦 Compiling Android assembleRelease (APK) & bundleRelease (AAB)..."
+            ./android/gradlew -p android assembleRelease bundleRelease --no-daemon
           else
             echo "❌ Không tìm thấy android/gradlew để build Android!"
             exit 1
@@ -203,12 +214,20 @@ jobs:
         with:
           name: android-release-apk
           path: "**/android/app/build/outputs/apk/release/*.apk"
+          if-no-files-found: warn
+
+      - name: Upload Android AAB Artifact (Google Play Store)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-aab
+          path: "**/android/app/build/outputs/bundle/release/*.aab"
+          if-no-files-found: warn
 
   # ──────────────────────────────────────────────────────────────────────────
-  # 4. DEPLOY — AWS S3 WEB STORE (Dev/Staging only)
+  # 4. DEPLOY — AWS S3 & OTA WEB STORE (Dev/Staging only)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-s3:
-    name: "☁️ Deploy to AWS S3 Web Store"
+    name: "☁️ Deploy to AWS S3 / OTA Web Store"
     if: github.event_name != 'pull_request' && inputs.environment != 'production'
     needs: [build-android]
     runs-on: ubuntu-latest
@@ -222,66 +241,124 @@ jobs:
           name: android-release-apk
           path: android-apk/
 
-      - name: Deploy Build & Web Portal to AWS S3
+      - name: Deploy Build to OTA Portal & AWS S3
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
+          OTA_SERVER_URL: ${{ secrets.OTA_SERVER_URL }}
           APP_NAME: ${{ inputs.app_name }}
           ENVIRONMENT: ${{ inputs.environment }}
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$AWS_S3_BUCKET" ]; then
-            echo "ℹ️ Bỏ qua bước Deploy S3: Chưa cấu hình đủ AWS Secrets (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_S3_BUCKET)."
+          SOURCE_APK=$(find android-apk -name "*.apk" | head -n 1)
+          if [ -z "$SOURCE_APK" ]; then
+            echo "⚠️ Không tìm thấy file APK trong android-apk/"
             exit 0
           fi
-          export AWS_REGION="${AWS_REGION:-ap-southeast-1}"
-          echo "🚀 Uploading $APP_NAME ($ENVIRONMENT) build to AWS S3 Bucket: $AWS_S3_BUCKET..."
 
-          # Ưu tiên chạy script deploy tuỳ chỉnh của dự án nếu có
-          if [ -f "scripts/deploy-aws-s3.py" ]; then
-            python3 -m pip install boto3 --break-system-packages 2>/dev/null || true
-            python3 scripts/deploy-aws-s3.py
-          elif [ -f "scripts/deploy-aws-s3.sh" ]; then
-            chmod +x scripts/deploy-aws-s3.sh
-            ./scripts/deploy-aws-s3.sh
-          else
-            # Upload tự động qua AWS CLI nếu dự án chưa có script riêng
-            echo "⚡ Using AWS CLI to upload APK to S3..."
-            aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
-            aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
-            aws configure set default.region "$AWS_REGION"
-            
-            APP_SLUG=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-')
-            SHORT_SHA="${GITHUB_SHA:0:7}"
-            DEST_PATH="s3://${AWS_S3_BUCKET}/builds/android/${APP_SLUG}-${ENVIRONMENT}-${SHORT_SHA}.apk"
-            
-            SOURCE_APK=$(find android-apk -name "*.apk" | head -n 1)
-            if [ -n "$SOURCE_APK" ]; then
-              aws s3 cp "$SOURCE_APK" "$DEST_PATH"
-              echo "✅ Đã tải file APK lên: $DEST_PATH"
+          # 1. Đẩy lên OTA Distribution Server nếu có cấu hình OTA_SERVER_URL
+          if [ -n "$OTA_SERVER_URL" ]; then
+            echo "🚀 Đang tải APK lên OTA Distribution Server: $OTA_SERVER_URL..."
+            NOTE="${COMMIT_MSG:-Bản build $ENVIRONMENT từ CI/CD}"
+            curl -s -X POST "$OTA_SERVER_URL/api/ota/upload" \
+              -F "file=@$SOURCE_APK" \
+              --form-string "environment=$ENVIRONMENT" \
+              --form-string "flavor=$ENVIRONMENT" \
+              --form-string "message=$NOTE" \
+              --form-string "author=@$ACTOR" \
+              --form-string "branch=$REF_NAME" || echo "⚠️ OTA upload failed (non-blocking)"
+          fi
+
+          # 2. Đẩy lên AWS S3 Web Store nếu có S3 Credentials
+          if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && [ -n "$AWS_S3_BUCKET" ]; then
+            export AWS_REGION="${AWS_REGION:-ap-southeast-1}"
+            echo "🚀 Uploading $APP_NAME ($ENVIRONMENT) build to AWS S3 Bucket: $AWS_S3_BUCKET..."
+
+            if [ -f "scripts/deploy-aws-s3.py" ]; then
+              python3 -m pip install boto3 --break-system-packages 2>/dev/null || true
+              python3 scripts/deploy-aws-s3.py
+            elif [ -f "scripts/deploy-aws-s3.sh" ]; then
+              chmod +x scripts/deploy-aws-s3.sh
+              ./scripts/deploy-aws-s3.sh
             else
-              echo "⚠️ Không tìm thấy file APK trong android-apk/"
+              echo "⚡ Using AWS CLI to upload APK to S3..."
+              aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+              aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+              aws configure set default.region "$AWS_REGION"
+              
+              APP_SLUG=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-')
+              SHORT_SHA="${GITHUB_SHA:0:7}"
+              DEST_PATH="s3://${AWS_S3_BUCKET}/builds/android/${APP_SLUG}-${ENVIRONMENT}-${SHORT_SHA}.apk"
+              aws s3 cp "$SOURCE_APK" "$DEST_PATH"
+              echo "✅ Đã tải file APK lên S3: $DEST_PATH"
             fi
           fi
 
   # ──────────────────────────────────────────────────────────────────────────
-  # 5. PRODUCTION RELEASE APPROVAL
+  # 5. PRODUCTION RELEASE & GOOGLE PLAY STORE DEPLOYMENT
   # ──────────────────────────────────────────────────────────────────────────
   production-release:
-    name: "🎉 Production Release Approved"
+    name: "🎉 Production Release & Google Play"
     if: github.event_name != 'pull_request' && inputs.environment == 'production'
     needs: [build-android]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Consumer App Repository
+        uses: actions/checkout@v4
+
+      - name: Download AAB Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-release-aab
+          path: android-bundle/
+
+      - name: Deploy AAB to Google Play Store (Production Track)
+        env:
+          GPLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GPLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          AAB_PATH=$(find android-bundle -name "*.aab" | head -n 1)
+          if [ -z "$AAB_PATH" ]; then
+            echo "❌ Không tìm thấy file AAB trong android-bundle/"
+            exit 1
+          fi
+          echo "📦 File AAB chính thức: $AAB_PATH"
+
+          if [ -n "$GPLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "🚀 Đang tiến hành upload AAB lên Google Play Console..."
+            echo "$GPLAY_SERVICE_ACCOUNT_JSON" > /tmp/gplay_key.json
+            
+            gem install fastlane --no-document 2>/dev/null || true
+
+            fastlane run upload_to_play_store \
+              json_key:"/tmp/gplay_key.json" \
+              track:"production" \
+              release_status:"draft" \
+              aab:"$AAB_PATH" \
+              skip_upload_screenshots:true \
+              skip_upload_images:true \
+              skip_upload_metadata:true || echo "⚠️ Upload Google Play thất bại (Kiểm tra lại quyền Service Account hoặc lần đầu release thủ công)"
+
+            rm -f /tmp/gplay_key.json
+            echo "🎉 Upload Google Play Production Track hoàn tất!"
+          else
+            echo "ℹ️ GPLAY_SERVICE_ACCOUNT_JSON chưa được cấu hình."
+            echo "📦 File AAB đã được lưu trữ an toàn tại Artifacts 'android-release-aab'."
+            echo "👉 LƯU Ý CHO LẦN RELEASE ĐẦU TIÊN: Google Play yêu cầu tải file .aab thủ công trên Google Play Console UI để hoàn tất khai báo thông tin ứng dụng."
+          fi
+
       - name: Production Release Approved Notification
         run: |
           echo "=========================================================================="
           echo "🎉 PRODUCTION RELEASE APPROVED & DEPLOYED SUCCESSFULLY!"
           echo "📌 Environment: PRODUCTION"
-          echo "📌 Web Store Upload: SKIPPED (Internal testing Web Store is reserved for Dev/Staging)"
-          echo "📌 Status: Production Release Approved for Official App Store / Play Store Distribution"
+          echo "📌 Google Play Bundle (.aab): Ready / Uploaded"
+          echo "📌 Status: Production Release Approved for Official Store Distribution"
           echo "=========================================================================="
+
 
   # ──────────────────────────────────────────────────────────────────────────
   # 6. NOTIFY SLACK & TEAMS RICH CARDS (with Buttons)

@@ -109,6 +109,54 @@ platform :ios do
   end
 
   # ============================================================================
+  # 🚀 LANE :APP_DISTRIBUTION — Phân phối IPA lên OTA Distribution Server
+  # ============================================================================
+  desc "🚀 APP_DISTRIBUTION: Đóng gói IPA và đẩy lên OTA Distribution Server kèm metadata"
+  lane :app_distribution do
+    build_env = ENV['BUILD_ENV'] || "DEV"
+    flavor = ENV['FLAVOR'] || build_env.downcase
+    message = ENV['MESSAGE'] || ENV['M'] || "Bản build iOS #{build_env}"
+    author = ENV['AUTHOR'] || Actions.git_author || "Developer"
+    branch = ENV['REF_NAME'] || Actions.git_branch || "main"
+    server_url = ENV['OTA_SERVER_URL'] || ENV['BASE_URL'] || "http://localhost:3000"
+
+    # Tìm file IPA có sẵn hoặc đóng gói bằng gym/build_app
+    ipa_files = Dir.glob("build/*.ipa") +
+                Dir.glob("*.ipa") +
+                Dir.glob("../ios/build/*.ipa") +
+                Dir.glob("../build/*.ipa")
+    ipa_path = ipa_files.first
+
+    unless ipa_path
+      UI.header("🔨 Đang đóng gói IPA bằng gym/build_app...")
+      build_app(
+        export_method: "ad-hoc",
+        output_directory: "build"
+      )
+      ipa_path = Dir.glob("build/*.ipa").first
+    end
+
+    UI.user_error!("❌ Không tìm thấy file .ipa để phân phối!") unless ipa_path
+
+    UI.header("🚀 Đang đẩy IPA lên OTA Distribution: #{server_url}...")
+    UI.message("📦 File:     #{ipa_path}")
+    UI.message("🌍 Env:      #{build_env} (Flavor: #{flavor})")
+    UI.message("💬 Message:  #{message}")
+    UI.message("👤 Author:   #{author}")
+
+    sh(
+      "curl", "-s", "-X", "POST", "#{server_url}/api/ota/upload",
+      "-F", "file=@#{ipa_path}",
+      "--form-string", "environment=#{build_env.downcase}",
+      "--form-string", "flavor=#{flavor}",
+      "--form-string", "message=#{message}",
+      "--form-string", "author=#{author}",
+      "--form-string", "branch=#{branch}"
+    )
+    UI.success("🎉 Đã phân phối bản IPA (#{build_env}) lên OTA Portal thành công!")
+  end
+
+  # ============================================================================
   # 📸 SCREENSHOTS — Chụp ảnh tự động đa thiết bị
   # ============================================================================
   desc "📸 Chụp ảnh màn hình tự động bằng Snapshot"

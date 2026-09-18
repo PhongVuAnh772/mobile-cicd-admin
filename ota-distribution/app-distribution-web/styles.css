@@ -1,0 +1,515 @@
+/* ==========================================================================
+   Internal App Distribution Web Portal - Styles (Concept Matching)
+   ========================================================================== */
+
+:root {
+  --primary-orange: #FF5500;
+  --primary-orange-hover: #E04800;
+  --primary-orange-light: #FFF4F0;
+  --bg-main: #FAFAFB;
+  --bg-card: #FFFFFF;
+  --text-main: #1F2937;
+  --text-muted: #6B7280;
+  --text-light: #9CA3AF;
+  --border-color: #E5E7EB;
+  --border-active: #FFDCD0;
+  --sidebar-width: 280px;
+  --sidebar-bg: #FFFFFF;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.08);
+  --shadow-orange: 0 8px 20px rgba(255, 85, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  display: flex;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ==========================================================================
+   Layout Structure: Sidebar Drawer + Main Content Area
+   ========================================================================== */
+
+.app-container {
+  display: flex;
+  width: 100vw;
+  min-height: 100vh;
+}
+
+/* Drawer / Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s ease;
+  z-index: 100;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed {
+  margin-left: calc(-1 * var(--sidebar-width));
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-main);
+}
+
+.brand-badge {
+  background: var(--primary-orange-light);
+  color: var(--primary-orange);
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.sidebar-search {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  outline: none;
+  background: #F9FAFB url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%239CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>') no-repeat 10px center;
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: var(--primary-orange);
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(255, 85, 0, 0.1);
+}
+
+/* Tree View Drawer Styling */
+.tree-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 8px;
+}
+
+.tree-node {
+  list-style: none;
+  user-select: none;
+}
+
+.tree-content {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  transition: background 0.15s ease, color 0.15s ease;
+  gap: 8px;
+}
+
+.tree-content:hover {
+  background-color: #F3F4F6;
+}
+
+.tree-content.active {
+  background-color: var(--primary-orange-light);
+  color: var(--primary-orange);
+  font-weight: 600;
+}
+
+.tree-toggle {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  color: var(--text-muted);
+}
+
+.tree-toggle.expanded {
+  transform: rotate(90deg);
+}
+
+.tree-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.tree-children {
+  padding-left: 20px;
+  display: none;
+}
+
+.tree-children.open {
+  display: block;
+}
+
+.node-badge {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: #E5E7EB;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+/* Main Workspace */
+.main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Top App Header / Navbar */
+.top-navbar {
+  height: 60px;
+  background: #FFFFFF;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.toggle-drawer-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-drawer-btn:hover {
+  background: #F3F4F6;
+  color: var(--text-main);
+}
+
+.nav-breadcrumbs {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-breadcrumbs span {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Concept Main Page View (Exact Match with Image)
+   ========================================================================== */
+
+.concept-container {
+  max-width: 720px;
+  margin: 40px auto 60px auto;
+  padding: 0 20px;
+  width: 100%;
+}
+
+/* Centered Hero Card */
+.hero-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.app-main-icon {
+  width: 100px;
+  height: 100px;
+  border-radius: 22px;
+  object-fit: cover;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 16px;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.app-main-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #374151;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.app-meta-pill {
+  font-size: 0.88rem;
+  color: #9CA3AF;
+  margin-bottom: 8px;
+  font-weight: 400;
+}
+
+.app-upload-date {
+  font-size: 0.84rem;
+  color: #9CA3AF;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.app-upload-date .delete-link {
+  color: #9CA3AF;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.app-upload-date .delete-link:hover {
+  color: #EF4444;
+}
+
+/* Dynamic QR Code Box */
+.qr-code-box {
+  background: #FFFFFF;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  margin-bottom: 28px;
+  display: inline-block;
+}
+
+.qr-code-box img,
+.qr-code-box canvas {
+  display: block;
+  width: 150px;
+  height: 150px;
+}
+
+/* Big Orange Download & Install CTA Button (Matching Concept Image) */
+.btn-download-primary {
+  width: 320px;
+  max-width: 100%;
+  height: 48px;
+  background: linear-gradient(135deg, #FF6000, #F04800);
+  color: #FFFFFF;
+  font-size: 0.98rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  box-shadow: var(--shadow-orange);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.btn-download-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(255, 85, 0, 0.4);
+  background: linear-gradient(135deg, #FF5500, #E03E00);
+}
+
+.btn-download-primary:active {
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   Build History List (Matching Concept Image)
+   ========================================================================== */
+
+.history-section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-item {
+  background: #FFFFFF;
+  border: 1px solid #F3F4F6;
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.history-item:hover {
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.history-item.selected {
+  background-color: #FFF9F7;
+  border-color: #FFD4C4;
+}
+
+.history-item-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.history-app-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.history-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.history-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.history-os-icon {
+  font-size: 1rem;
+}
+
+.history-subtext {
+  font-size: 0.78rem;
+  color: #9CA3AF;
+}
+
+.history-item-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.checkbox-select {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-orange);
+  cursor: pointer;
+}
+
+.btn-icon-download {
+  color: var(--primary-orange);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.btn-icon-download:hover {
+  background: var(--primary-orange-light);
+}
+
+/* Modal / Toast Notifications */
+.toast-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #10B981;
+  color: #FFFFFF;
+  padding: 12px 20px;
+  border-radius: 20px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.toast-notification.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    box-shadow: var(--shadow-md);
+  }
+  .concept-container {
+    margin-top: 20px;
+    padding: 0 16px;
+  }
+  .app-main-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 18px;
+  }
+  .app-main-title {
+    font-size: 1.35rem;
+  }
+  .btn-download-primary {
+    width: 100%;
+  }
+}

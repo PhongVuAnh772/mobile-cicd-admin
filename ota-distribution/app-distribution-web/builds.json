@@ -1,0 +1,40 @@
+{
+  "apps": [
+    {
+      "id": "cryptovault",
+      "name": "CryptoVault",
+      "icon": "assets/images/icon_app.png",
+      "description": "Enterprise Non-Custodial Multi-Chain Crypto & NFT Vault",
+      "platforms": {
+        "android": {
+          "environments": {
+            "production": [
+              {
+                "id": "cv-apk-1.0.0-1",
+                "version": "1.0.0",
+                "buildNumber": "1",
+                "stage": "Release",
+                "fileSize": "87.38 MB",
+                "uploadDate": "2026-08-18T00:48:00Z",
+                "formattedDate": "00:48 18/08/26",
+                "timeAgo": "Vừa phát hành",
+                "downloadUrl": "https://amzn-s3-cryptovault.s3.ap-southeast-2.amazonaws.com/downloads/android/CryptoVault-v1.0.0-Release.apk",
+                "fileName": "CryptoVault-v1.0.0-Release.apk",
+                "changelog": "Chính thức phát hành phiên bản Android Release 1.0.0."
+              }
+            ],
+            "staging": [],
+            "development": []
+          }
+        },
+        "ios": {
+          "environments": {
+            "production": [],
+            "staging": [],
+            "development": []
+          }
+        }
+      }
+    }
+  ]
+}

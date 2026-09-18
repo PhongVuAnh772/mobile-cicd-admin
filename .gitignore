@@ -1,0 +1,22 @@
+# Environment files (Protected against accidental public leaks)
+.env
+.env.local
+*.env
+!.env.example
+!*.env.example
+
+# Dependencies
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs & Temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OTA distribution uploaded artifacts
+ota-distribution/server/uploads/*
+!ota-distribution/server/uploads/.gitkeep

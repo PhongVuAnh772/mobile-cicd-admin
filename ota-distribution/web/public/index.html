@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile OTA & App Distribution Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF5A1F;
+            --primary-dark: #E04810;
+            --primary-light: #FFF0EB;
+            --bg: #0B0F19;
+            --surface: #111827;
+            --surface-hover: #1F2937;
+            --card-bg: #151D2F;
+            --border: #243046;
+            --text-main: #F9FAFB;
+            --text-muted: #94A3B8;
+            --dev-color: #F59E0B;
+            --dev-bg: rgba(245, 158, 11, 0.12);
+            --beta-color: #8B5CF6;
+            --beta-bg: rgba(139, 92, 246, 0.12);
+            --prod-color: #10B981;
+            --prod-bg: rgba(16, 185, 129, 0.12);
+            --ios-color: #38BDF8;
+            --android-color: #34D399;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header */
+        header {
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            padding: 16px 28px;
+        }
+
+        .header-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-decoration: none;
+            color: var(--text-main);
+        }
+
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #FF7A45, #FF5A1F);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 14px rgba(255, 90, 31, 0.3);
+        }
+
+        .brand-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-subtitle {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 2px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10B981;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10B981;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-upload {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(255, 90, 31, 0.25);
+        }
+
+        .btn-upload:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        /* Hero Banner */
+        .hero {
+            background: radial-gradient(circle at 50% 0%, rgba(255, 90, 31, 0.12), transparent 60%);
+            padding: 36px 20px 24px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin-bottom: 10px;
+        }
+
+        .hero p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+
+        /* Main Container */
+        main {
+            max-width: 1280px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px 28px 60px;
+            flex: 1;
+        }
+
+        /* Environment Tabs */
+        .tabs-container {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        .env-tabs {
+            display: flex;
+            gap: 8px;
+            background: var(--surface);
+            padding: 6px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            background: var(--card-bg);
+            color: var(--text-main);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+        }
+
+        .tab-btn[data-env="dev"].active {
+            color: var(--dev-color);
+            border-color: rgba(245, 158, 11, 0.4);
+        }
+
+        .tab-btn[data-env="beta"].active {
+            color: var(--beta-color);
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+
+        .tab-btn[data-env="prod"].active {
+            color: var(--prod-color);
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        /* Platform filter & Search */
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .platform-select, .search-input {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .platform-select:focus, .search-input:focus {
+            border-color: var(--primary);
+        }
+
+        .search-input {
+            min-width: 280px;
+        }
+
+        /* Build Cards Grid */
+        .builds-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 20px;
+        }
+
+        .build-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            position: relative;
+        }
+
+        .build-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            border-color: rgba(255, 90, 31, 0.4);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .card-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .platform-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .platform-icon.ios {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--ios-color);
+        }
+
+        .platform-icon.android {
+            background: rgba(52, 211, 153, 0.15);
+            color: var(--android-color);
+        }
+
+        .card-app-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .card-app-version {
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            font-weight: 500;
+        }
+
+        /* Badges */
+        .badges-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-dev {
+            background: var(--dev-bg);
+            color: var(--dev-color);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .badge-beta {
+            background: var(--beta-bg);
+            color: var(--beta-color);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .badge-prod {
+            background: var(--prod-bg);
+            color: var(--prod-color);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-flavor {
+            background: rgba(255, 255, 255, 0.08);
+            color: #E2E8F0;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .badge-branch {
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--ios-color);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            font-family: monospace;
+            text-transform: none;
+        }
+
+        /* Message / Note Box */
+        .message-box {
+            background: rgba(17, 24, 39, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-left: 3px solid var(--primary);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.86rem;
+            color: #E2E8F0;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
+        .message-box .author-tag {
+            font-size: 0.78rem;
+            color: var(--primary);
+            font-weight: 600;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        /* Meta Information */
+        .meta-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px dashed var(--border);
+            padding-top: 12px;
+        }
+
+        /* Action Buttons */
+        .card-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-install {
+            flex: 1;
+            background: var(--primary);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            padding: 11px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-install:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-icon-action {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .btn-icon-action:hover {
+            background: var(--surface-hover);
+            border-color: var(--primary);
+        }
+
+        /* Empty State */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            background: var(--surface);
+            border: 1px dashed var(--border);
+            border-radius: 16px;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .empty-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .empty-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .btn-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 11px 14px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: var(--primary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .btn-submit {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 13px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        .btn-submit:hover {
+            background: var(--primary-dark);
+        }
+
+        /* QR Modal Content */
+        .qr-modal-body {
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .qr-box {
+            background: white;
+            padding: 16px;
+            border-radius: 16px;
+            display: inline-block;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+        }
+
+        .qr-box img {
+            width: 220px;
+            height: 220px;
+            display: block;
+        }
+
+        .qr-instructions {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 12px 20px;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            font-size: 0.88rem;
+            z-index: 2000;
+            display: none;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <a href="/" class="brand">
+                <div class="brand-icon">🚀</div>
+                <div>
+                    <div class="brand-title">OTA App Distribution</div>
+                    <div class="brand-subtitle">
+                        <span class="status-dot"></span> Multi-Environment Distribution Portal
+                    </div>
+                </div>
+            </a>
+            <div class="header-actions">
+                <button class="btn-upload" onclick="openUploadModal()">
+                    <span>+</span> Đẩy bản build mới
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Area -->
+    <section class="hero">
+        <h1>Phân phối ứng dụng Mobile nội bộ</h1>
+        <p>Hỗ trợ cài đặt iOS OTA (.ipa qua Safari), tải trực tiếp Android (.apk / .aab) cho các môi trường Dev, Staging/Beta và Production.</p>
+    </section>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Environment Navigation & Filters -->
+        <div class="tabs-container">
+            <div class="env-tabs">
+                <button class="tab-btn active" data-env="all" onclick="filterByEnv('all')">
+                    🌟 Tất cả
+                </button>
+                <button class="tab-btn" data-env="dev" onclick="filterByEnv('dev')">
+                    🛠️ DEV / DEBUG
+                </button>
+                <button class="tab-btn" data-env="beta" onclick="filterByEnv('beta')">
+                    🧪 STAGING / BETA
+                </button>
+                <button class="tab-btn" data-env="prod" onclick="filterByEnv('prod')">
+                    👑 PRODUCTION
+                </button>
+            </div>
+
+            <div class="filter-group">
+                <select class="platform-select" id="platformFilter" onchange="filterBuilds()">
+                    <option value="all">📱 Tất cả nền tảng</option>
+                    <option value="ios"> iOS (.ipa)</option>
+                    <option value="android">🤖 Android (.apk / .aab)</option>
+                </select>
+
+                <input type="text" id="searchInput" class="search-input" placeholder="🔍 Tìm theo ghi chú, @tác giả, branch..." oninput="filterBuilds()">
+            </div>
+        </div>
+
+        <!-- Builds Grid -->
+        <div class="builds-grid" id="buildsGrid">
+            <!-- Dynamically populated -->
+        </div>
+    </main>
+
+    <!-- Upload Modal -->
+    <div class="modal" id="uploadModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">📦 Đẩy bản build mới lên OTA</div>
+                <button class="btn-close" onclick="closeUploadModal()">&times;</button>
+            </div>
+            <form id="uploadForm" onsubmit="handleUpload(event)">
+                <div class="form-group">
+                    <label>File cài đặt (.ipa, .apk, .aab)</label>
+                    <input type="file" id="buildFile" accept=".ipa,.apk,.aab,.zip" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Môi trường (Environment)</label>
+                        <select id="buildEnv" required>
+                            <option value="dev">🛠️ DEV (Development)</option>
+                            <option value="beta">🧪 BETA (Staging)</option>
+                            <option value="prod">👑 PROD (Production)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Flavor</label>
+                        <select id="buildFlavor" required>
+                            <option value="dev">dev</option>
+                            <option value="beta">beta</option>
+                            <option value="pro">pro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tên ứng dụng</label>
+                        <input type="text" id="appName" placeholder="Ví dụ: CryptoVault" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phiên bản (Version)</label>
+                        <input type="text" id="appVersion" placeholder="1.0.0" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Build Number</label>
+                        <input type="number" id="buildNumber" placeholder="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Bundle ID / Package Name</label>
+                        <input type="text" id="bundleId" placeholder="com.example.app" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Ghi chú bản vá (-m / Message)</label>
+                    <textarea id="buildMessage" rows="2" placeholder="Ví dụ: Gửi bản dev cho @TE_HauTV"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Người gửi / Tác giả (Author)</label>
+                        <input type="text" id="buildAuthor" placeholder="@TE_HauTV">
+                    </div>
+                    <div class="form-group">
+                        <label>Nhánh Git (Branch / REF_NAME)</label>
+                        <input type="text" id="buildBranch" placeholder="develop">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitBtn">🚀 ĐẨY BẢN BUILD LÊN PORTAL</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal" id="qrModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title" id="qrModalTitle">Quét mã QR để cài đặt</div>
+                <button class="btn-close" onclick="closeQrModal()">&times;</button>
+            </div>
+            <div class="qr-modal-body">
+                <div class="qr-box">
+                    <img id="qrImage" src="" alt="QR Code">
+                </div>
+                <div class="qr-instructions" id="qrInstructions">
+                    Mở Camera trên điện thoại (hoặc Safari trên iOS) để quét mã và cài đặt trực tiếp.
+                </div>
+                <a id="qrDirectLink" href="#" target="_blank" class="btn-install" style="display: inline-flex;">
+                    📲 Mở link tải trực tiếp
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">Thông báo</div>
+
+    <script>
+        let allApps = [];
+        let activeEnv = 'all';
+
+        // Load Apps on start
+        document.addEventListener('DOMContentLoaded', fetchApps);
+
+        async function fetchApps() {
+            try {
+                const res = await fetch('/api/ota/list');
+                allApps = await res.json();
+                renderBuilds();
+            } catch (err) {
+                console.error("Error fetching apps:", err);
+                showToast("Lỗi khi tải danh sách bản build");
+            }
+        }
+
+        function filterByEnv(env) {
+            activeEnv = env;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.env === env);
+            });
+            renderBuilds();
+        }
+
+        function filterBuilds() {
+            renderBuilds();
+        }
+
+        function renderBuilds() {
+            const grid = document.getElementById('buildsGrid');
+            const platformFilter = document.getElementById('platformFilter').value;
+            const searchKeyword = document.getElementById('searchInput').value.toLowerCase().trim();
+
+            let filtered = allApps.filter(app => {
+                // Filter by Environment Tab
+                if (activeEnv !== 'all' && app.environment !== activeEnv) {
+                    return false;
+                }
+                // Filter by Platform
+                if (platformFilter !== 'all' && app.platform !== platformFilter) {
+                    return false;
+                }
+                // Filter by Search Keyword
+                if (searchKeyword) {
+                    const matchName = (app.appName || '').toLowerCase().includes(searchKeyword);
+                    const matchVersion = (app.version || '').toLowerCase().includes(searchKeyword);
+                    const matchMessage = (app.message || '').toLowerCase().includes(searchKeyword);
+                    const matchAuthor = (app.author || '').toLowerCase().includes(searchKeyword);
+                    const matchBranch = (app.branch || '').toLowerCase().includes(searchKeyword);
+                    const matchFlavor = (app.flavor || '').toLowerCase().includes(searchKeyword);
+                    return matchName || matchVersion || matchMessage || matchAuthor || matchBranch || matchFlavor;
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <div class="empty-title">Chưa có bản build nào</div>
+                        <div class="empty-desc">Không tìm thấy bản build phù hợp với bộ lọc hiện tại. Hãy dùng lệnh Makefile hoặc bấm nút "Đẩy bản build mới".</div>
+                        <button class="btn-upload" style="margin: 0 auto;" onclick="openUploadModal()">+ Đẩy bản build ngay</button>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(app => {
+                const isIos = app.platform === 'ios';
+                const platformIcon = isIos ? '' : '🤖';
+                const platformClass = isIos ? 'ios' : 'android';
+                const platformText = isIos ? 'iOS (.ipa)' : `Android (.${app.fileType || 'apk'})`;
+
+                const env = app.environment || 'dev';
+                const envBadgeClass = env === 'prod' ? 'badge-prod' : (env === 'beta' ? 'badge-beta' : 'badge-dev');
+                const envLabel = env === 'prod' ? '👑 PROD' : (env === 'beta' ? '🧪 BETA' : '🛠️ DEV');
+
+                const flavorText = app.flavor ? `flavor=${app.flavor}` : `flavor=${env}`;
+                const branchText = app.branch ? `🌿 ${app.branch}` : '';
+                const authorText = app.author ? `<span class="author-tag">👤 ${app.author}:</span>` : '';
+                const messageText = app.message || 'Bản build nội bộ mới';
+
+                const uploadDate = app.createdAt ? formatTimeAgo(new Date(app.createdAt)) : '--';
+                const sizeText = app.sizeMb || (app.sizeBytes ? (app.sizeBytes / (1024*1024)).toFixed(2) + ' MB' : '');
+
+                const installBtnText = isIos ? '📲 Cài đặt (iOS Safari)' : `📥 Tải ${app.fileType ? app.fileType.toUpperCase() : 'APK'}`;
+                const installBtnUrl = isIos ? app.installUrl : (app.fileUrl || app.webInstallUrl);
+
+                return `
+                    <div class="build-card" id="card-${app.id}">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <div class="platform-icon ${platformClass}">${platformIcon}</div>
+                                <div>
+                                    <div class="card-app-name">${escapeHtml(app.appName)}</div>
+                                    <div class="card-app-version">v${escapeHtml(app.version)} (Build #${escapeHtml(app.buildNumber || '1')})</div>
+                                </div>
+                            </div>
+                            <button class="btn-icon-action" title="Xóa build này" onclick="deleteBuild('${app.id}')">
+                                🗑️
+                            </button>
+                        </div>
+
+                        <div class="badges-row">
+                            <span class="badge ${envBadgeClass}">${envLabel}</span>
+                            <span class="badge badge-flavor">${flavorText}</span>
+                            <span class="badge" style="background: rgba(255,255,255,0.05);">${platformText}</span>
+                            ${branchText ? `<span class="badge badge-branch">${escapeHtml(branchText)}</span>` : ''}
+                        </div>
+
+                        <div class="message-box">
+                            ${authorText}${escapeHtml(messageText)}
+                        </div>
+
+                        <div class="meta-row">
+                            <span>🕒 ${uploadDate}</span>
+                            <span>📦 ${sizeText}</span>
+                        </div>
+
+                        <div class="card-actions">
+                            <a href="${installBtnUrl}" class="btn-install" target="_blank">
+                                ${installBtnText}
+                            </a>
+                            <button class="btn-icon-action" title="Quét mã QR" onclick="showQrModal('${app.id}')">
+                                📷
+                            </button>
+                            <button class="btn-icon-action" title="Sao chép link cài đặt" onclick="copyLink('${isIos ? app.installUrl : (app.webInstallUrl || app.fileUrl)}')">
+                                🔗
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Upload Form Handler
+        async function handleUpload(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            const fileInput = document.getElementById('buildFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast("Vui lòng chọn file build");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('appName', document.getElementById('appName').value);
+            formData.append('version', document.getElementById('appVersion').value);
+            formData.append('buildNumber', document.getElementById('buildNumber').value);
+            formData.append('bundleId', document.getElementById('bundleId').value);
+            formData.append('environment', document.getElementById('buildEnv').value);
+            formData.append('flavor', document.getElementById('buildFlavor').value);
+            formData.append('message', document.getElementById('buildMessage').value);
+            formData.append('author', document.getElementById('buildAuthor').value);
+            formData.append('branch', document.getElementById('buildBranch').value);
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "⏳ Đang upload & xử lý...";
+
+            try {
+                const res = await fetch('/api/ota/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast("🎉 Upload bản build thành công!");
+                    closeUploadModal();
+                    document.getElementById('uploadForm').reset();
+                    fetchApps();
+                } else {
+                    showToast("❌ Lỗi: " + (result.error || "Không thể upload"));
+                }
+            } catch (err) {
+                showToast("❌ Lỗi mạng: " + err.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "🚀 ĐẨY BẢN BUILD LÊN PORTAL";
+            }
+        }
+
+        // Delete Build
+        async function deleteBuild(id) {
+            if (!confirm("Bạn có chắc chắn muốn xóa bản build này không?")) return;
+            try {
+                const res = await fetch(`/api/ota/delete/${id}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (result.success) {
+                    showToast("Đã xóa bản build");
+                    fetchApps();
+                } else {
+                    showToast("Lỗi khi xóa: " + result.error);
+                }
+            } catch (err) {
+                showToast("Lỗi kết nối khi xóa");
+            }
+        }
+
+        // Modal Controls
+        function openUploadModal() {
+            document.getElementById('uploadModal').style.display = 'flex';
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').style.display = 'none';
+        }
+
+        function showQrModal(appId) {
+            const app = allApps.find(a => a.id === appId);
+            if (!app) return;
+
+            document.getElementById('qrModalTitle').textContent = `${app.appName} v${app.version} (${app.environment.toUpperCase()})`;
+            document.getElementById('qrImage').src = app.qrCode;
+
+            const isIos = app.platform === 'ios';
+            document.getElementById('qrInstructions').textContent = isIos
+                ? "Mở Camera trên iPhone/iPad (hoặc Safari) để quét mã QR và bấm Install trực tiếp qua giao thức itms-services."
+                : "Mở Camera trên điện thoại Android để quét mã QR và tải file APK trực tiếp.";
+
+            document.getElementById('qrDirectLink').href = isIos ? app.installUrl : (app.fileUrl || app.webInstallUrl);
+            document.getElementById('qrModal').style.display = 'flex';
+        }
+
+        function closeQrModal() {
+            document.getElementById('qrModal').style.display = 'none';
+        }
+
+        // Utilities
+        function copyLink(url) {
+            if (!url) return;
+            navigator.clipboard.writeText(url).then(() => {
+                showToast("📋 Đã sao chép đường dẫn cài đặt!");
+            }).catch(() => {
+                showToast("Không thể copy tự động, vui lòng copy tay.");
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        function formatTimeAgo(date) {
+            const now = new Date();
+            const diffSec = Math.floor((now - date) / 1000);
+            if (diffSec < 60) return "Vừa xong";
+            const diffMin = Math.floor(diffSec / 60);
+            if (diffMin < 60) return `${diffMin} phút trước`;
+            const diffHour = Math.floor(diffMin / 60);
+            if (diffHour < 24) return `${diffHour} giờ trước`;
+            const diffDay = Math.floor(diffHour / 24);
+            return `${diffDay} ngày trước`;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        // Close modal on click outside
+        window.onclick = function(event) {
+            const uploadModal = document.getElementById('uploadModal');
+            const qrModal = document.getElementById('qrModal');
+            if (event.target === uploadModal) closeUploadModal();
+            if (event.target === qrModal) closeQrModal();
+        }
+    </script>
+</body>
+</html>

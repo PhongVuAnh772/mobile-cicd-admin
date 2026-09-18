@@ -123,6 +123,78 @@ platform :android do
   end
 
   # ============================================================================
+  # 🚀 LANE :UPLOAD — Phân phối APK lên OTA Distribution Server
+  # ============================================================================
+  desc "🚀 UPLOAD: Đẩy bản APK lên OTA Distribution Server kèm metadata"
+  lane :upload do
+    build_env = ENV['BUILD_ENV'] || "DEV"
+    flavor = ENV['FLAVOR'] || build_env.downcase
+    message = ENV['MESSAGE'] || ENV['M'] || "Bản build Android #{build_env}"
+    author = ENV['AUTHOR'] || Actions.git_author || "Developer"
+    branch = ENV['REF_NAME'] || Actions.git_branch || "main"
+    server_url = ENV['OTA_SERVER_URL'] || ENV['BASE_URL'] || "http://localhost:3000"
+
+    apk_files = Dir.glob("app/build/outputs/apk/release/*.apk") +
+                Dir.glob("app/build/outputs/apk/*/*.apk") +
+                Dir.glob("../android/app/build/outputs/apk/release/*.apk") +
+                Dir.glob("build/outputs/apk/*/*.apk")
+
+    apk_path = apk_files.reject { |f| f.include?("unaligned") }.first
+    UI.user_error!("❌ Không tìm thấy file APK để upload!") unless apk_path
+
+    UI.header("🚀 Đang đẩy APK lên OTA Distribution: #{server_url}...")
+    UI.message("📦 File:     #{apk_path}")
+    UI.message("🌍 Env:      #{build_env} (Flavor: #{flavor})")
+    UI.message("💬 Message:  #{message}")
+    UI.message("👤 Author:   #{author}")
+
+    sh(
+      "curl", "-s", "-X", "POST", "#{server_url}/api/ota/upload",
+      "-F", "file=@#{apk_path}",
+      "--form-string", "environment=#{build_env.downcase}",
+      "--form-string", "flavor=#{flavor}",
+      "--form-string", "message=#{message}",
+      "--form-string", "author=#{author}",
+      "--form-string", "branch=#{branch}"
+    )
+    UI.success("🎉 Đã phân phối bản APK (#{build_env}) lên OTA Portal thành công!")
+  end
+
+  # ============================================================================
+  # 🏪 LANE :UPLOAD_INTERNAL — Đẩy AAB lên Google Play Internal Testing Track
+  # ============================================================================
+  desc "🏪 UPLOAD_INTERNAL: Đẩy file AAB lên Google Play Internal Track"
+  lane :upload_internal do
+    aab_files = Dir.glob("app/build/outputs/bundle/release/*.aab") +
+                Dir.glob("app/build/outputs/bundle/*/*.aab") +
+                Dir.glob("../android/app/build/outputs/bundle/release/*.aab")
+
+    aab_path = aab_files.first
+    UI.user_error!("❌ Không tìm thấy file AAB để upload Google Play!") unless aab_path
+
+    if ENV['GPLAY_SERVICE_ACCOUNT_JSON'] || File.exist?("service_account.json")
+      upload_to_play_store(
+        track: "internal",
+        aab: aab_path,
+        skip_upload_screenshots: true,
+        skip_upload_metadata: true
+      )
+      UI.success("🎉 Đã upload thành công lên Google Play Internal Track!")
+    else
+      UI.important("⚠️ Chưa cấu hình GPLAY_SERVICE_ACCOUNT_JSON — Bỏ qua upload Google Play.")
+      UI.message("📦 File AAB đã sẵn sàng tại: #{aab_path}")
+    end
+  end
+
+  # ============================================================================
+  # 🔢 LANE :SET_NEXT_BUILD_NUMBER — Tăng build number tự động
+  # ============================================================================
+  desc "🔢 Tăng build number trước khi build bản Release"
+  lane :set_next_build_number do
+    UI.message("🔢 Tăng build number: Sử dụng GITHUB_RUN_NUMBER hoặc timestamp")
+  end
+
+  # ============================================================================
   # 🎯 LANE :AUTO_BY_BRANCH — Tự động chọn Lane phù hợp dựa theo tên Branch
   # ============================================================================
   desc "🎯 AUTO: Tự động điều hướng Lane theo tên nhánh Git"

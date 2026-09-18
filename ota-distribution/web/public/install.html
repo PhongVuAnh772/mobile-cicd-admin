@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cài đặt ứng dụng | Mobile OTA Distribution</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF5A1F;
+            --primary-dark: #E04810;
+            --bg: #0B0F19;
+            --card-bg: #151D2F;
+            --border: #243046;
+            --text-main: #F9FAFB;
+            --text-muted: #94A3B8;
+            --dev-color: #F59E0B;
+            --dev-bg: rgba(245, 158, 11, 0.12);
+            --beta-color: #8B5CF6;
+            --beta-bg: rgba(139, 92, 246, 0.12);
+            --prod-color: #10B981;
+            --prod-bg: rgba(16, 185, 129, 0.12);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px 16px;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(255, 90, 31, 0.18) 0, transparent 60%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 460px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 36px 28px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .app-icon {
+            width: 88px;
+            height: 88px;
+            background: linear-gradient(135deg, #FF7A45, #FF5A1F);
+            border-radius: 20px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+            box-shadow: 0 8px 20px rgba(255, 90, 31, 0.3);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 6px;
+            letter-spacing: -0.02em;
+        }
+
+        .version {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 18px;
+            display: block;
+            font-weight: 500;
+        }
+
+        .badges-row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .badge {
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        .badge-dev { background: var(--dev-bg); color: var(--dev-color); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-beta { background: var(--beta-bg); color: var(--beta-color); border: 1px solid rgba(139, 92, 246, 0.3); }
+        .badge-prod { background: var(--prod-bg); color: var(--prod-color); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-flavor { background: rgba(255, 255, 255, 0.08); color: #E2E8F0; border: 1px solid rgba(255, 255, 255, 0.12); }
+
+        .message-box {
+            background: rgba(17, 24, 39, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-left: 3px solid var(--primary);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 0.88rem;
+            color: #E2E8F0;
+            margin-bottom: 24px;
+            text-align: left;
+            line-height: 1.5;
+        }
+
+        .message-box .author-tag {
+            color: var(--primary);
+            font-weight: 700;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.8rem;
+        }
+
+        .btn-install {
+            display: block;
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            text-decoration: none;
+            padding: 16px 24px;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(255, 90, 31, 0.3);
+        }
+
+        .btn-install:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .instructions {
+            margin-top: 24px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            text-align: left;
+            background: rgba(17, 24, 39, 0.4);
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .instructions ol {
+            padding-left: 18px;
+            margin-top: 6px;
+        }
+
+        .instructions li {
+            margin-bottom: 4px;
+        }
+
+        .loading, .error-message {
+            padding: 40px 0;
+            font-size: 0.95rem;
+        }
+
+        .error-message {
+            color: #EF4444;
+            display: none;
+        }
+
+        #content {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loader" class="loading">⏳ Đang tải thông tin bản build...</div>
+        <div id="error" class="error-message">❌ Không tìm thấy bản build hoặc liên kết đã hết hạn.</div>
+        
+        <div id="content">
+            <div class="app-icon" id="app-initial">📱</div>
+            <h1 id="app-name">App Name</h1>
+            <span class="version" id="app-version">v1.0.0 (Build #1)</span>
+
+            <div class="badges-row" id="badges-container">
+                <!-- Injected badges -->
+            </div>
+
+            <div class="message-box" id="message-box">
+                <span class="author-tag" id="author-tag">👤 @Tác giả</span>
+                <span id="message-text">Ghi chú bản vá</span>
+            </div>
+
+            <button class="btn-install" id="install-btn">📲 Tải và Cài đặt</button>
+            
+            <div class="instructions" id="instructions">
+                <strong>💡 Lưu ý khi cài đặt:</strong>
+                <ol id="instructions-list">
+                    <li>Mở trang này trên <strong>Safari</strong> (đối với iOS) hoặc Chrome (Android).</li>
+                    <li>Đối với iOS: Sau khi cài đặt, vào <em>Cài đặt &gt; Cài đặt chung &gt; Quản lý VPN &amp; Thiết bị</em> để Tin cậy chứng chỉ doanh nghiệp nếu được hỏi.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const appId = window.location.pathname.split('/').pop();
+        const content = document.getElementById('content');
+        const loader = document.getElementById('loader');
+        const error = document.getElementById('error');
+
+        async function fetchDetails() {
+            try {
+                const response = await fetch(`/api/ota/details/${appId}`);
+                if (!response.ok) throw new Error('Not found');
+                
+                const data = await response.json();
+                
+                document.getElementById('app-name').textContent = data.appName;
+                document.getElementById('app-version').textContent = `v${data.version} (Build #${data.buildNumber || '1'}) • ${data.bundleId}`;
+                document.getElementById('app-initial').textContent = (data.appName || 'M').charAt(0).toUpperCase();
+                
+                // Badges
+                const env = data.environment || 'dev';
+                const envClass = env === 'prod' ? 'badge-prod' : (env === 'beta' ? 'badge-beta' : 'badge-dev');
+                const envLabel = env === 'prod' ? '👑 PROD' : (env === 'beta' ? '🧪 BETA' : '🛠️ DEV');
+                const flavorLabel = data.flavor ? `flavor=${data.flavor}` : `flavor=${env}`;
+                const platformLabel = data.platform === 'ios' ? ' iOS (.ipa)' : `🤖 Android (.${data.fileType || 'apk'})`;
+
+                document.getElementById('badges-container').innerHTML = `
+                    <span class="badge ${envClass}">${envLabel}</span>
+                    <span class="badge badge-flavor">${flavorLabel}</span>
+                    <span class="badge" style="background: rgba(255,255,255,0.08);">${platformLabel}</span>
+                    ${data.branch ? `<span class="badge" style="background: rgba(56,189,248,0.1); color: #38BDF8;">🌿 ${escapeHtml(data.branch)}</span>` : ''}
+                `;
+
+                // Message Box
+                if (data.author) {
+                    document.getElementById('author-tag').textContent = `👤 ${data.author}:`;
+                    document.getElementById('author-tag').style.display = 'block';
+                } else {
+                    document.getElementById('author-tag').style.display = 'none';
+                }
+                document.getElementById('message-text').textContent = data.message || 'Bản build nội bộ mới';
+
+                // Install Button
+                const isIos = data.platform === 'ios';
+                const btn = document.getElementById('install-btn');
+                if (isIos) {
+                    btn.textContent = "📲 Cài đặt OTA (iOS Safari)";
+                    btn.onclick = () => {
+                        window.location.href = data.installUrl;
+                    };
+                } else {
+                    btn.textContent = `📥 Tải file .${data.fileType ? data.fileType.toUpperCase() : 'APK'} trực tiếp`;
+                    btn.onclick = () => {
+                        window.location.href = data.fileUrl || data.installUrl;
+                    };
+                }
+
+                loader.style.display = 'none';
+                content.style.display = 'block';
+            } catch (err) {
+                loader.style.display = 'none';
+                error.style.display = 'block';
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        fetchDetails();
+    </script>
+</body>
+</html>

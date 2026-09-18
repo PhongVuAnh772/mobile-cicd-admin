@@ -1,0 +1,13 @@
+services:
+  ota-app:
+    build: .
+    container_name: ota-distribution-service
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file: .env
+    volumes:
+      - ./server/uploads:/app/server/uploads
+      - ./server/db.json:/app/server/db.json
+    restart: always

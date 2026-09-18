@@ -124,6 +124,31 @@ echo -e "${BOLD}${BLUE}⚙️  [2/4] Đồng bộ file .github/workflows/ci.yml.
 
 if [ -f "$GIT_ROOT/.github/workflows/ci.yml" ]; then
   echo -e "  ${GREEN}✅ File .github/workflows/ci.yml đã sẵn sàng tại $GIT_ROOT!${NC}"
+else
+  echo -e "  ${YELLOW}⚡ Chưa có .github/workflows/ci.yml — Đang tự động khởi tạo kết nối Admin Pipeline...${NC}"
+  mkdir -p "$GIT_ROOT/.github/workflows"
+  cat << 'EOF' > "$GIT_ROOT/.github/workflows/ci.yml"
+name: "Enterprise Mobile CI/CD"
+
+on:
+  push:
+    branches: [main, dev]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Môi trường deploy (staging / production)"
+        required: false
+        default: "staging"
+
+jobs:
+  admin-pipeline:
+    uses: phong-mobile/mobile-cicd-admin/.github/workflows/master-pipeline.yml@main
+    secrets: inherit
+EOF
+  echo -e "  ${GREEN}✅ Đã tạo file .github/workflows/ci.yml kết nối tới Reusable Workflow thành công!${NC}"
 fi
 echo ""
 
@@ -400,7 +425,7 @@ while true; do
       ;;
 
     *)
-      LAST_ACTION_MSG="${RED}⚠️ Lựa chọn không hợp lệ. Vui lòng nhập số từ 0 đến 4.${NC}"
+      LAST_ACTION_MSG="${RED}⚠️ Lựa chọn không hợp lệ. Vui lòng nhập số từ 0 đến 7.${NC}"
       ;;
   esac
 done
