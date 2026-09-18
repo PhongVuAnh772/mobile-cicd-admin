@@ -228,12 +228,12 @@ Engine quản lý tính năng động cho mobile app không phụ thuộc vào b
 ## ❓ Các câu hỏi thường gặp (FAQ)
 
 #### Q1: Tôi có cần tạo rule riêng cho từng thành viên mới không?
-> **Không.** Toàn bộ quy trình phân quyền dựa trên **GitHub Teams** (`mobile-developers`, `mobile-tech-leads`, `release-managers`). Khi có nhân sự mới, bạn chỉ cần mời họ vào Org và add vào đúng Team. Mọi quyền hạn, hạn chế push code và quyền duyệt release sẽ tự động áp dụng.
+> **Không.** Toàn bộ quy trình phân quyền dựa trên **GitHub Teams** (`mobile-developers`, `mobile-tech-leads`, `release-managers`) đối với Organization, hoặc dựa trên quyền Collaborator của repo đối với tài khoản cá nhân. Khi có nhân sự mới, bạn chỉ cần gán vào đúng vai trò. Mọi quyền hạn, hạn chế push code và quyền duyệt release sẽ tự động áp dụng.
 
 #### Q2: Bắt buộc các dự án phải nằm trong Organization `phong-mobile` không?
-> **Có, bắt buộc.** Vì 2 lý do kỹ thuật của GitHub:
-> 1. Tính năng Reusable Workflows (`workflow_call`) giữa các repository riêng tư chỉ hoạt động giữa các repo thuộc **cùng một Organization**.
-> 2. Tính năng chia sẻ biến môi trường tập trung (`secrets: inherit`) và quản lý theo Teams chỉ tồn tại ở cấp Organization.
+> **Không bắt buộc! Hệ thống hỗ trợ Dual-Mode (Cả Organization lẫn Personal User Account):**
+> 1. **Chế độ Organization (`phong-mobile`)**: Phù hợp cho công ty/doanh nghiệp. Hỗ trợ phân quyền qua 3 Teams (`developers`, `tech-leads`, `release-managers`), Dual Approval và chia sẻ Secrets tập trung cấp Org.
+> 2. **Chế độ Personal Account (`username-cua-ban`)**: Phù hợp cho dự án cá nhân hoặc Solo Dev. Vì repo `mobile-cicd-admin` là **Public**, bất kỳ repo cá nhân nào cũng có thể gọi pipeline. Script `./setup-github-rules.sh` sẽ tự động nhận diện tài khoản cá nhân để thiết lập Ruleset bảo vệ nhánh `main` và tag release mà không cần tạo Teams. Secrets được lưu tại **Repository Secrets** của chính repo đó.
 
 #### Q3: Lập trình viên có thể sửa đổi cấu hình Fastlane hoặc bỏ qua bước test không?
 > **Không thể.** Toàn bộ file cấu hình `Fastfile`, `Dangerfile.ts` và script test nằm trong repo admin này. Repo của lập trình viên chỉ chứa file `ci.yml` trỏ link sang đây. Bất kỳ nỗ lực can thiệp nào vào pipeline sẽ bị chặn bởi các status checks bắt buộc của Branch Protection Ruleset.
