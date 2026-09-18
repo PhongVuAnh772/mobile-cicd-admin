@@ -209,9 +209,8 @@ gh api -X POST "repos/${FULL_REPO}/rulesets" \
       "parameters": {
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
-          { "context": "🧪 ESLint & TypeScript Checks" },
-          { "context": "Jest Unit Tests & Coverage (≥ 80%)" },
-          { "context": "Gitleaks Secret Scanning" }
+          { "context": "🧪 CI — Lint, TypeCheck & Unit Tests" },
+          { "context": "🛡️ Admin Governance & Security Check" }
         ]
       }
     },

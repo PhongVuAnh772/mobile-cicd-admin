@@ -1,28 +1,28 @@
-[title]
-description = "Gitleaks secret scanning configuration for CryptoVaultRN"
+# ============================================================================
+# 🛡️ GITLEAKS CONFIGURATION — SECRET SCANNING RULES FOR MOBILE PROJECTS
+# ============================================================================
 
-[[rules]]
-description = "Generic API Key"
-id = "generic-api-key"
-regex = '''(?i)(api_key|apikey|secret_key|private_key)\s*[:=]\s*["']([0-9a-zA-Z]{16,64})["']'''
-tags = ["key", "generic"]
+title = "Enterprise Mobile Gitleaks Config"
 
-[[rules]]
-description = "Firebase Private Key"
-id = "firebase-private-key"
-regex = '''-----BEGIN PRIVATE KEY-----\n[A-Za-z0-9+/=\n]+-----END PRIVATE KEY-----'''
-tags = ["firebase", "key"]
-
-[[rules]]
-description = "JWT Token"
-id = "jwt-token"
-regex = '''eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*'''
-tags = ["jwt", "token"]
+[extend]
+useDefault = true
 
 [allowlist]
-description = "Global allowlist"
+description = "Allowlisted files and paths"
 paths = [
-  '''package-lock\.json''',
-  '''yarn\.lock''',
-  '''\.github/workflows/.*'''
+  '''^\.git''',
+  '''node_modules''',
+  '''Pods''',
+  '''android/build''',
+  '''ios/build''',
+  '''coverage''',
+  '''yarn\.lock$''',
+  '''package-lock\.json$''',
+  '''\.example$''',
+  '''mock.*'''
+]
+regexes = [
+  '''(?i)example''',
+  '''(?i)test''',
+  '''(?i)dummy'''
 ]

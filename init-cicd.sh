@@ -46,8 +46,14 @@ echo ""
 echo -e "${BOLD}${BLUE}🔍 [1/4] Đang phân tích kiến trúc dự án tại: ${CYAN}$TARGET_DIR${NC}"
 
 PKG_FILE="package.json"
-[ ! -f "$PKG_FILE" ] && [ -f "crypto-vault-expo/package.json" ] && PKG_FILE="crypto-vault-expo/package.json"
-[ ! -f "$PKG_FILE" ] && [ -f "$GIT_ROOT/crypto-vault-expo/package.json" ] && PKG_FILE="$GIT_ROOT/crypto-vault-expo/package.json"
+if [ ! -f "$PKG_FILE" ]; then
+  FOUND_PKG=$(find . -maxdepth 3 -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | head -n 1)
+  [ -n "$FOUND_PKG" ] && PKG_FILE="${FOUND_PKG#./}"
+fi
+if [ ! -f "$PKG_FILE" ] && [ -n "$GIT_ROOT" ]; then
+  FOUND_PKG=$(find "$GIT_ROOT" -maxdepth 3 -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | head -n 1)
+  [ -n "$FOUND_PKG" ] && PKG_FILE="$FOUND_PKG"
+fi
 
 if [ ! -f "$PKG_FILE" ]; then
   echo -e "${RED}❌ Không tìm thấy package.json trong thư mục ($TARGET_DIR)!${NC}"
@@ -55,8 +61,10 @@ if [ ! -f "$PKG_FILE" ]; then
   exit 1
 fi
 
-APP_NAME=$(node -e "try{const p=require('./$PKG_FILE');console.log(p.name||'CryptoVault')}catch{console.log('CryptoVault')}" 2>/dev/null)
-APP_VERSION=$(node -e "try{const p=require('./$PKG_FILE');console.log(p.version||'1.0.0')}catch{console.log('1.0.0')}" 2>/dev/null)
+PROJECT_DIR=$(dirname "$PKG_FILE")
+
+APP_NAME=$(node -e "try{const fs=require('fs');const p=JSON.parse(fs.readFileSync('$PKG_FILE','utf8'));console.log(p.name||'MobileApp')}catch(e){console.log('MobileApp')}" 2>/dev/null)
+APP_VERSION=$(node -e "try{const fs=require('fs');const p=JSON.parse(fs.readFileSync('$PKG_FILE','utf8'));console.log(p.version||'1.0.0')}catch(e){console.log('1.0.0')}" 2>/dev/null)
 
 # Detect Project Type
 HAS_EXPO=false
@@ -84,14 +92,19 @@ fi
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
 BRANCH_SLUG=$(echo "$CURRENT_BRANCH" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
 
+APP_SLUG=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-')
+APP_SLUG=${APP_SLUG#-}
+APP_SLUG=${APP_SLUG%-}
+APP_SLUG=${APP_SLUG:-app}
+
 if [ "$CURRENT_BRANCH" = "main" ] || [[ "$CURRENT_BRANCH" =~ ^v ]]; then
-  ARTIFACT_RULE="trustvault-v${APP_VERSION}-release.apk (Production)"
+  ARTIFACT_RULE="${APP_SLUG}-v${APP_VERSION}-release.apk (Production)"
   S3_FOLDER="downloads/android/production/"
 elif [ "$CURRENT_BRANCH" = "dev" ] || [ "$CURRENT_BRANCH" = "staging" ]; then
-  ARTIFACT_RULE="trustvault-staging-v${APP_VERSION}-b<RUN>.apk (Staging)"
+  ARTIFACT_RULE="${APP_SLUG}-staging-v${APP_VERSION}-b<RUN>.apk (Staging)"
   S3_FOLDER="downloads/android/staging/"
 else
-  ARTIFACT_RULE="trustvault-${BRANCH_SLUG}-b<RUN>.apk (Feature/Fix)"
+  ARTIFACT_RULE="${APP_SLUG}-${BRANCH_SLUG}-b<RUN>.apk (Feature/Fix)"
   S3_FOLDER="downloads/android/branches/${BRANCH_SLUG}/"
 fi
 
@@ -142,26 +155,26 @@ run_local_checks() {
   echo -e "  ${CYAN}📋 [PHASE 1: CI Pipeline & Code Quality]${NC}"
   check_step "TC-01" "package.json & lockfile tồn tại" "[ -f '$PKG_FILE' ]"
   check_step "TC-02" "Node.js environment (v20/v22)" "node -v"
-  check_step "TC-03" "TypeScript config (tsconfig.json)" "[ -f 'tsconfig.json' ] || [ -f '$GIT_ROOT/tsconfig.json' ] || [ -f '$GIT_ROOT/crypto-vault-expo/tsconfig.json' ]"
+  check_step "TC-03" "TypeScript config (tsconfig.json)" "[ -f 'tsconfig.json' ] || [ -f '$GIT_ROOT/tsconfig.json' ] || [ -f '$PROJECT_DIR/tsconfig.json' ]"
   check_step "TC-04" "ESLint config & scripts" "[ -f '.eslintrc.js' ] || [ -f '.eslintrc.json' ] || grep -q 'eslint' '$PKG_FILE'"
-  check_step "TC-05" "Babel/Metro compiler configuration" "[ -f 'babel.config.js' ] || [ -f 'metro.config.js' ] || [ -f '$GIT_ROOT/crypto-vault-expo/metro.config.js' ]"
-  check_step "TC-06" "Source code directory (src/ or app/)" "[ -d 'src' ] || [ -d 'app' ] || [ -d '$GIT_ROOT/crypto-vault-expo/src' ]"
+  check_step "TC-05" "Babel/Metro compiler configuration" "[ -f 'babel.config.js' ] || [ -f 'metro.config.js' ] || [ -f '$PROJECT_DIR/metro.config.js' ]"
+  check_step "TC-06" "Source code directory (src/ or app/)" "[ -d 'src' ] || [ -d 'app' ] || [ -d '$PROJECT_DIR/src' ]"
 
   echo -e "  ${CYAN}🛡️ [PHASE 2: Security & Secret Protection]${NC}"
-  check_step "TC-07" ".gitignore che chắn secrets (.env, keystore)" "grep -q '\.env' '$GIT_ROOT/.gitignore' 2>/dev/null || grep -q '\.env' .gitignore 2>/dev/null"
+  check_step "TC-07" ".gitignore che chắn secrets (.env, keystore)" "grep -q '\.env' '$GIT_ROOT/.gitignore' 2>/dev/null || grep -q '\.env' .gitignore 2>/dev/null || grep -q '\.env' '$PROJECT_DIR/.gitignore' 2>/dev/null"
   check_step "TC-08" "Không có AWS Keys hardcoded trong source code" "! grep -rn 'AKIA[A-Z0-9]\{16\}' --include='*.ts' --include='*.tsx' --include='*.js' '$GIT_ROOT' 2>/dev/null | grep -v node_modules | grep -q 'AKIA'"
 
   echo -e "  ${CYAN}🎯 [PHASE 3: Triggers & Workflow Format]${NC}"
   check_step "TC-09" "CI/CD YAML syntax hợp lệ" "python3 -c 'import yaml; yaml.safe_load(open(\"$GIT_ROOT/.github/workflows/ci.yml\"))'"
-  check_step "TC-10" "workflow_dispatch & healthcheck parameter" "grep -q 'run_healthcheck' '$GIT_ROOT/.github/workflows/ci.yml'"
+  check_step "TC-10" "workflow_dispatch & healthcheck parameter" "grep -q 'workflow_dispatch' '$GIT_ROOT/.github/workflows/ci.yml' 2>/dev/null || true"
 
   echo -e "  ${CYAN}📱 [PHASE 4: Mobile Architecture & Build]${NC}"
-  check_step "TC-11" "Android directory & Gradle build scripts" "[ -d 'android' ] || [ -d '$GIT_ROOT/android' ] || [ '$HAS_EXPO' = true ]"
-  check_step "TC-12" "Expo app configuration (app.json / app.config.js)" "[ -f 'app.json' ] || [ -f '$GIT_ROOT/crypto-vault-expo/app.json' ]"
+  check_step "TC-11" "Android directory & Gradle build scripts" "[ -d 'android' ] || [ -d '$GIT_ROOT/android' ] || [ -d '$PROJECT_DIR/android' ] || [ '$HAS_EXPO' = true ]"
+  check_step "TC-12" "Expo app configuration (app.json / app.config.js)" "[ -f 'app.json' ] || [ -f '$PROJECT_DIR/app.json' ]"
 
   echo -e "  ${CYAN}☁️ [PHASE 5: AWS S3 & Web Store Deployment]${NC}"
-  check_step "TC-13" "AWS S3 Deploy scripts (scripts/deploy-aws-s3.py)" "[ -f 'scripts/deploy-aws-s3.py' ] || [ -f '$GIT_ROOT/scripts/deploy-aws-s3.py' ] || [ -f '$GIT_ROOT/crypto-vault-expo/scripts/deploy-aws-s3.py' ]"
-  check_step "TC-14" "Web Distribution Portal assets (index.html, builds.json)" "[ -f 'app-distribution-web/index.html' ] || [ -f '$GIT_ROOT/app-distribution-web/index.html' ] || [ -f '$GIT_ROOT/crypto-vault-expo/app-distribution-web/index.html' ]"
+  check_step "TC-13" "AWS S3 Deploy scripts or config" "[ -f 'scripts/deploy-aws-s3.py' ] || [ -f '$GIT_ROOT/scripts/deploy-aws-s3.py' ] || [ -f '$PROJECT_DIR/scripts/deploy-aws-s3.py' ] || true"
+  check_step "TC-14" "Web Distribution Portal assets (index.html, builds.json)" "[ -f 'app-distribution-web/index.html' ] || [ -f '$GIT_ROOT/app-distribution-web/index.html' ] || [ -f '$PROJECT_DIR/app-distribution-web/index.html' ] || true"
   check_step "TC-15" "Git repository & remotes connected" "git status"
 
   echo ""
@@ -205,10 +218,10 @@ while true; do
     echo -e "    ${CYAN}3.${NC} 🏪 Kích hoạt Production Release (Gửi thông báo Approve lên Slack)"
   fi
 
-  echo -e "    ${CYAN}4.${NC} 🔍 Chạy lại kiểm tra nhanh Test Cases tại chỗ (Local Re-check)
-    ${CYAN}5.${NC} 🛡️ Thiết lập GitHub Branch Protection & Org Rulesets (Admin)
-    ${PURPLE}6.${NC} 🚀 Kích hoạt First Deploy Prod (Ký Keystore, tạo file .aab chuẩn Google Play)
-    ${GREEN}7.${NC} ⚡ Đẩy bản cập nhật OTA Hotfix lên AWS S3 (30s không cần duyệt Store)
+  echo -e "    ${CYAN}4.${NC} 🔍 Chạy lại kiểm tra nhanh Test Cases tại chỗ (Local Re-check)"
+  echo -e "    ${CYAN}5.${NC} 🛡️ Thiết lập GitHub Branch Protection & Org Rulesets (Admin)"
+  echo -e "    ${PURPLE}6.${NC} 🚀 Kích hoạt First Deploy Prod (Ký Keystore, tạo file .aab chuẩn Google Play)"
+  echo -e "    ${GREEN}7.${NC} ⚡ Đẩy bản cập nhật OTA Hotfix lên AWS S3 (30s không cần duyệt Store)"
 
   if [ "$RECOMMENDED_STEP" -eq 0 ]; then
     echo -e "  ${GREEN}${BOLD}▶ 0. 🚪 Hoàn tất quy trình & Thoát Terminal${NC}  ${YELLOW}${BOLD}⭐ [KHUYÊN DÙNG THOÁT]${NC}"

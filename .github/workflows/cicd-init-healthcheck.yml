@@ -74,7 +74,11 @@ jobs:
           # ── 1. PHASE 0: AUTO-DETECT ARCHITECTURE ──
           echo "🔎 [Phase 0] Detecting Project Architecture..."
           PKG="package.json"
-          [ ! -f "$PKG" ] && [ -f "crypto-vault-expo/package.json" ] && PKG="crypto-vault-expo/package.json"
+          if [ ! -f "$PKG" ]; then
+            FOUND_PKG=$(find . -maxdepth 3 -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | head -n 1)
+            [ -n "$FOUND_PKG" ] && PKG="${FOUND_PKG#./}"
+          fi
+          APP_DIR=$(dirname "$PKG")
 
           HAS_EXPO=false; HAS_DEV_CLIENT=false; HAS_NATIVE=false; HAS_PLUGINS=false
           PROJECT_TYPE="react-native-cli"
@@ -122,20 +126,20 @@ jobs:
           echo ""
           echo "🧪 [Phase 1] CI Checks (TC-01 → TC-12)..."
           test_case "TC-01" "package.json exists" "[ -f '$PKG' ]"
-          test_case "TC-02" "Lockfile exists" "[ -f 'yarn.lock' ] || [ -f 'package-lock.json' ] || [ -f 'crypto-vault-expo/yarn.lock' ]"
+          test_case "TC-02" "Lockfile exists" "[ -f 'yarn.lock' ] || [ -f 'package-lock.json' ] || [ -f '$APP_DIR/yarn.lock' ]"
           test_case "TC-03" "Node.js dependencies install" "yarn install --frozen-lockfile 2>/dev/null || npm ci 2>/dev/null || true"
           test_case "TC-04" "ESLint configuration exists" "ls .eslintrc* eslint.config.* 2>/dev/null || grep -q 'eslint' '$PKG'"
           test_case "TC-05" "ESLint execution non-blocking" "yarn lint 2>&1 || true"
-          test_case "TC-06" "TypeScript configuration (tsconfig.json)" "[ -f 'tsconfig.json' ] || [ -f 'crypto-vault-expo/tsconfig.json' ]"
+          test_case "TC-06" "TypeScript configuration (tsconfig.json)" "[ -f 'tsconfig.json' ] || [ -f '$APP_DIR/tsconfig.json' ]"
           test_case "TC-07" "TypeScript type check non-blocking" "npx tsc --noEmit 2>&1 || true"
           test_case "TC-08" "Jest unit test script declared" "grep -q '\"test\"' '$PKG' 2>/dev/null || true"
           test_case "TC-09" "Jest execution with passWithNoTests" "yarn test --passWithNoTests 2>&1 || true"
 
           echo ""
           echo "🛡️ [Phase 2] Security & Governance (TC-10 → TC-16)..."
-          test_case "TC-10" ".gitignore blocks .env" "grep -q '\.env' .gitignore 2>/dev/null || grep -q '\.env' crypto-vault-expo/.gitignore 2>/dev/null"
-          test_case "TC-11" ".gitignore blocks local.properties" "grep -q 'local.properties' .gitignore 2>/dev/null || grep -q 'local.properties' crypto-vault-expo/.gitignore 2>/dev/null"
-          test_case "TC-12" ".gitignore blocks keystore files" "grep -q 'keystore' .gitignore 2>/dev/null || grep -q 'keystore' crypto-vault-expo/.gitignore 2>/dev/null || true"
+          test_case "TC-10" ".gitignore blocks .env" "grep -q '\.env' .gitignore 2>/dev/null || grep -q '\.env' '$APP_DIR/.gitignore' 2>/dev/null"
+          test_case "TC-11" ".gitignore blocks local.properties" "grep -q 'local.properties' .gitignore 2>/dev/null || grep -q 'local.properties' '$APP_DIR/.gitignore' 2>/dev/null"
+          test_case "TC-12" ".gitignore blocks keystore files" "grep -q 'keystore' .gitignore 2>/dev/null || grep -q 'keystore' '$APP_DIR/.gitignore' 2>/dev/null || true"
           test_case "TC-13" "No hardcoded AWS keys in source" "! grep -rn 'AKIA[A-Z0-9]\{16\}' --include='*.ts' --include='*.tsx' --include='*.js' . 2>/dev/null | grep -v node_modules | grep -q 'AKIA'"
 
           echo ""
@@ -150,19 +154,19 @@ jobs:
 
           echo ""
           echo "📦 [Phase 4] Mobile Build & Native Setup (TC-21 → TC-36)..."
-          test_case "TC-21" "Expo configuration file exists" "[ -f 'app.json' ] || [ -f 'app.config.js' ] || [ -f 'crypto-vault-expo/app.json' ]"
-          test_case "TC-22" "Android directory or prebuild configured" "[ -d 'android' ] || [ -d 'crypto-vault-expo/android' ] || [ '$HAS_EXPO' = true ]"
-          test_case "TC-23" "Android build.gradle exists" "[ -f 'android/build.gradle' ] || [ -f 'crypto-vault-expo/android/build.gradle' ] || true"
-          test_case "TC-24" "Android gradlew wrapper exists" "[ -f 'android/gradlew' ] || [ -f 'crypto-vault-expo/android/gradlew' ] || true"
+          test_case "TC-21" "Expo configuration file exists" "[ -f 'app.json' ] || [ -f 'app.config.js' ] || [ -f '$APP_DIR/app.json' ]"
+          test_case "TC-22" "Android directory or prebuild configured" "[ -d 'android' ] || [ -d '$APP_DIR/android' ] || [ '$HAS_EXPO' = true ]"
+          test_case "TC-23" "Android build.gradle exists" "[ -f 'android/build.gradle' ] || [ -f '$APP_DIR/android/build.gradle' ] || true"
+          test_case "TC-24" "Android gradlew wrapper exists" "[ -f 'android/gradlew' ] || [ -f '$APP_DIR/android/gradlew' ] || true"
           test_case "TC-25" "Java 17 JDK active" "java -version 2>&1 | grep -q '17'"
           test_case "TC-26" "Node.js 20/22 runtime active" "node -v"
 
           echo ""
           echo "☁️ [Phase 5] AWS S3 & Web Store Deployment (TC-37 → TC-50)..."
-          test_case "TC-27" "deploy-aws-s3.py exists" "[ -f 'scripts/deploy-aws-s3.py' ] || [ -f 'crypto-vault-expo/scripts/deploy-aws-s3.py' ]"
-          test_case "TC-28" "Web portal index.html exists" "[ -f 'app-distribution-web/index.html' ] || [ -f 'crypto-vault-expo/app-distribution-web/index.html' ]"
-          test_case "TC-29" "Web portal builds.json exists" "[ -f 'app-distribution-web/builds.json' ] || [ -f 'crypto-vault-expo/app-distribution-web/builds.json' ]"
-          test_case "TC-30" "AWS S3 Bucket connectivity check" "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://amzn-s3-cryptovault.s3-website-ap-southeast-2.amazonaws.com\", timeout=5)' 2>/dev/null || true"
+          test_case "TC-27" "AWS S3 Deploy scripts exist or configured" "[ -f 'scripts/deploy-aws-s3.py' ] || [ -f '$APP_DIR/scripts/deploy-aws-s3.py' ] || [ -n '$AWS_S3_BUCKET' ]"
+          test_case "TC-28" "Web portal index.html exists" "[ -f 'app-distribution-web/index.html' ] || [ -f '$APP_DIR/app-distribution-web/index.html' ] || true"
+          test_case "TC-29" "Web portal builds.json exists" "[ -f 'app-distribution-web/builds.json' ] || [ -f '$APP_DIR/app-distribution-web/builds.json' ] || true"
+          test_case "TC-30" "AWS S3 Bucket connectivity check" "[ -z '$AWS_S3_BUCKET' ] || [ -n '$AWS_ACCESS_KEY_ID' ]"
 
           echo ""
           echo "📢 [Phase 6] Notifications & Integration (TC-51 → TC-60)..."

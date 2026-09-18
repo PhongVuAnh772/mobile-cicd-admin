@@ -14,9 +14,10 @@ if (totalChanges > bigPRThreshold) {
 }
 
 // ============================================================================
-// 2. BẮT BUỘC GẮN TICKET JIRA ([PAS-XXXX])
+// 2. BẮT BUỘC GẮN TICKET JIRA (Hỗ trợ cấu hình qua JIRA_PREFIX)
 // ============================================================================
-const jiraPattern = /\[PAS-\d+\]/i;
+const jiraPrefix = process.env.JIRA_PREFIX || '[A-Z0-9]+';
+const jiraPattern = new RegExp(`\\[${jiraPrefix}-\\d+\\]`, 'i');
 const prTitle = danger.github.pr.title;
 const prBody = danger.github.pr.body || '';
 
@@ -24,7 +25,8 @@ const hasJiraTitle = jiraPattern.test(prTitle);
 const hasJiraBody = jiraPattern.test(prBody);
 
 if (!hasJiraTitle && !hasJiraBody) {
-  fail('📝 **Thiếu Mã Ticket Jira**: Tiêu đề hoặc Mô tả PR phải chứa mã Jira/GitLab Issue dạng `[PAS-1234]`.');
+  const examplePrefix = process.env.JIRA_PREFIX || 'PAS';
+  fail(`📝 **Thiếu Mã Ticket Jira**: Tiêu đề hoặc Mô tả PR phải chứa mã Ticket dạng \`[${examplePrefix}-1234]\`.`);
 }
 
 // ============================================================================
@@ -40,11 +42,12 @@ if (packageChanged && !lockfileChanged) {
 // ============================================================================
 // 4. KIỂM TRA FEATURE FLAG SCHEMA & FALLBACK VALUES
 // ============================================================================
-const flagFileChanged = danger.git.modified_files.includes('src/config/featureFlags.json');
-if (flagFileChanged) {
+const flagPath = 'src/config/featureFlags.json';
+const flagFileChanged = danger.git.modified_files.includes(flagPath);
+if (flagFileChanged && fs.existsSync(flagPath)) {
   message('🚩 **Feature Flag Schema Updated**: PR này đã cập nhật cấu hình Feature Flags (`src/config/featureFlags.json`).');
   try {
-    const flagContent = fs.readFileSync('src/config/featureFlags.json', 'utf8');
+    const flagContent = fs.readFileSync(flagPath, 'utf8');
     const flagJson = JSON.parse(flagContent);
     const flags = flagJson.flags || {};
     
@@ -82,21 +85,24 @@ if (modifiedCode.length > 0) {
 // ============================================================================
 const prNumber = danger.github.pr.number;
 const commitSha = danger.github.pr.head.sha;
-const awsBucket = process.env.AWS_S3_BUCKET || 'my-company-mobile-builds';
+const awsBucket = process.env.AWS_S3_BUCKET;
 const awsRegion = process.env.AWS_REGION || 'ap-southeast-1';
+const appName = (process.env.APP_NAME || 'demo_app').toLowerCase().replace(/[^a-z0-9]/g, '_');
 
-const androidApkUrl = `https://${awsBucket}.s3.${awsRegion}.amazonaws.com/builds/android/${commitSha}.apk`;
-const iosPlistUrl = `https://${awsBucket}.s3.${awsRegion}.amazonaws.com/builds/ios/${commitSha}/manifest.plist`;
-const iosOtaLink = `itms-services://?action=download-manifest&url=${encodeURIComponent(iosPlistUrl)}`;
-const appetizeUrl = `https://appetize.io/embed/demo_app_${prNumber}?device=iphone15pro`;
+if (awsBucket) {
+  const androidApkUrl = `https://${awsBucket}.s3.${awsRegion}.amazonaws.com/builds/android/${commitSha}.apk`;
+  const iosPlistUrl = `https://${awsBucket}.s3.${awsRegion}.amazonaws.com/builds/ios/${commitSha}/manifest.plist`;
+  const iosOtaLink = `itms-services://?action=download-manifest&url=${encodeURIComponent(iosPlistUrl)}`;
+  const appetizeUrl = `https://appetize.io/embed/${appName}_${prNumber}?device=iphone15pro`;
 
-const qrAndroid = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(androidApkUrl)}`;
-const qrIos = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(iosOtaLink)}`;
+  const qrAndroid = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(androidApkUrl)}`;
+  const qrIos = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(iosOtaLink)}`;
 
-message(`
+  message(`
 ### 📲 Internal Build (AWS S3 Store & Web Preview)
 | 🤖 Android (APK) | 🍏 iOS (Ad-Hoc OTA) | 🌐 Web Simulator |
 | :---: | :---: | :---: |
 | ![Android QR](${qrAndroid}) | ![iOS QR](${qrIos}) | [👉 Appetize.io](${appetizeUrl}) |
 | [📥 Tải APK](${androidApkUrl}) | [📲 Cài OTA](${iosOtaLink}) | [💻 Test Web](${appetizeUrl}) |
 `);
+}

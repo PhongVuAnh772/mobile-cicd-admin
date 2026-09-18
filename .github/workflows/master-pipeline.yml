@@ -23,6 +23,11 @@ on:
         required: false
         type: boolean
         default: false
+      project_path:
+        description: "Đường dẫn thư mục dự án chứa package.json (mặc định: auto-detect)"
+        required: false
+        type: string
+        default: "."
     secrets:
       SLACK_WEBHOOK_URL:
         required: false
@@ -35,6 +40,8 @@ on:
       AWS_S3_BUCKET:
         required: false
       AWS_REGION:
+        required: false
+      ANDROID_KEYSTORE_BASE64:
         required: false
 
 permissions:
@@ -61,24 +68,38 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: '**/yarn.lock'
 
-      - name: Install Dependencies
-        run: yarn install --frozen-lockfile
+      - name: Resolve Project Root & Install Dependencies
+        run: |
+          PROJECT_ROOT="${{ inputs.project_path }}"
+          if [ "$PROJECT_ROOT" = "." ] && [ ! -f "package.json" ]; then
+            FOUND_PKG=$(find . -maxdepth 3 -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | head -n 1)
+            [ -n "$FOUND_PKG" ] && PROJECT_ROOT=$(dirname "$FOUND_PKG")
+          fi
+          echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
+          cd "$PROJECT_ROOT"
+          yarn install --frozen-lockfile 2>/dev/null || yarn install || npm install
 
       - name: ESLint — Code Quality Check
-        run: yarn lint || echo "⚠️ ESLint warnings found (non-blocking)"
+        run: |
+          cd "$PROJECT_ROOT"
+          yarn lint 2>&1 || npm run lint 2>&1 || echo "⚠️ ESLint warnings found (non-blocking)"
 
       - name: TypeScript — Type Safety Check
-        run: npx tsc --noEmit || echo "⚠️ TypeScript warnings found (non-blocking)"
+        run: |
+          cd "$PROJECT_ROOT"
+          npx tsc --noEmit 2>&1 || echo "⚠️ TypeScript warnings found (non-blocking)"
 
       - name: Jest — Unit Tests & Coverage
-        run: yarn test --ci --coverage --passWithNoTests || echo "⚠️ Some tests failed (non-blocking)"
+        run: |
+          cd "$PROJECT_ROOT"
+          yarn test --ci --coverage --passWithNoTests 2>&1 || npm test -- --passWithNoTests 2>&1 || echo "⚠️ Some tests failed (non-blocking)"
 
       - name: Upload Coverage Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage/
+          path: "**/coverage/"
           retention-days: 7
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -134,39 +155,48 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: '**/yarn.lock'
 
-      - name: Install Dependencies
+      - name: Resolve Project Root & Dependencies
         run: |
-          if [ -f "crypto-vault-expo/package.json" ]; then
-            cd crypto-vault-expo && yarn install
-          elif [ -f "package.json" ]; then
-            yarn install
+          PROJECT_ROOT="${{ inputs.project_path }}"
+          if [ "$PROJECT_ROOT" = "." ] && [ ! -f "package.json" ]; then
+            FOUND_PKG=$(find . -maxdepth 3 -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | head -n 1)
+            [ -n "$FOUND_PKG" ] && PROJECT_ROOT=$(dirname "$FOUND_PKG")
           fi
+          echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
+          cd "$PROJECT_ROOT"
+          yarn install --frozen-lockfile 2>/dev/null || yarn install || npm install
 
       - name: Build Android Release (APK & AAB)
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           echo "🚀 Building Android Release Binaries..."
-          if [ -f "crypto-vault-expo/package.json" ]; then
-            PROJECT_ROOT="$(pwd)/crypto-vault-expo"
-          elif [ -f "package.json" ]; then
-            PROJECT_ROOT="$(pwd)"
-          else
-            PROJECT_ROOT="$(pwd)"
-          fi
-
           cd "$PROJECT_ROOT"
-          echo "📁 Project root: $PROJECT_ROOT"
-          yarn install
-          export NODE_PATH="$PROJECT_ROOT/node_modules"
+          echo "📁 Project root: $(pwd)"
+          export NODE_PATH="$(pwd)/node_modules"
+
+          # Giải mã Keystore nếu có trong Secret
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "🔑 Decoding Keystore for Android signing..."
+            mkdir -p android/app
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore 2>/dev/null || true
+          fi
 
           if [ ! -d "android" ]; then
             echo "⚡ Running Expo prebuild for Android..."
-            npx expo prebuild --platform android
+            npx expo prebuild --platform android --non-interactive || true
           fi
 
-          chmod +x android/gradlew
-          ./android/gradlew -p android assembleRelease --no-daemon
+          if [ -f "android/gradlew" ]; then
+            chmod +x android/gradlew
+            ./android/gradlew -p android assembleRelease --no-daemon
+          else
+            echo "❌ Không tìm thấy android/gradlew để build Android!"
+            exit 1
+          fi
+
+          # Dọn dẹp keystore sau khi compile
+          rm -f android/app/release.keystore 2>/dev/null || true
 
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4
@@ -198,14 +228,42 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
+          APP_NAME: ${{ inputs.app_name }}
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
-          export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
-          export AWS_S3_BUCKET="${AWS_S3_BUCKET:-amzn-s3-cryptovault}"
-          export AWS_REGION="${AWS_REGION:-ap-southeast-2}"
-          echo "🚀 Uploading Dev/Staging Test Build & Web Portal to AWS S3..."
-          python3 -m pip install boto3 --break-system-packages 2>/dev/null || true
-          python3 scripts/deploy-aws-s3.py || ./scripts/deploy-aws-s3.sh || echo "⚠️ AWS S3 deploy completed with notice."
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$AWS_S3_BUCKET" ]; then
+            echo "ℹ️ Bỏ qua bước Deploy S3: Chưa cấu hình đủ AWS Secrets (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_S3_BUCKET)."
+            exit 0
+          fi
+          export AWS_REGION="${AWS_REGION:-ap-southeast-1}"
+          echo "🚀 Uploading $APP_NAME ($ENVIRONMENT) build to AWS S3 Bucket: $AWS_S3_BUCKET..."
+
+          # Ưu tiên chạy script deploy tuỳ chỉnh của dự án nếu có
+          if [ -f "scripts/deploy-aws-s3.py" ]; then
+            python3 -m pip install boto3 --break-system-packages 2>/dev/null || true
+            python3 scripts/deploy-aws-s3.py
+          elif [ -f "scripts/deploy-aws-s3.sh" ]; then
+            chmod +x scripts/deploy-aws-s3.sh
+            ./scripts/deploy-aws-s3.sh
+          else
+            # Upload tự động qua AWS CLI nếu dự án chưa có script riêng
+            echo "⚡ Using AWS CLI to upload APK to S3..."
+            aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+            aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+            aws configure set default.region "$AWS_REGION"
+            
+            APP_SLUG=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-')
+            SHORT_SHA="${GITHUB_SHA:0:7}"
+            DEST_PATH="s3://${AWS_S3_BUCKET}/builds/android/${APP_SLUG}-${ENVIRONMENT}-${SHORT_SHA}.apk"
+            
+            SOURCE_APK=$(find android-apk -name "*.apk" | head -n 1)
+            if [ -n "$SOURCE_APK" ]; then
+              aws s3 cp "$SOURCE_APK" "$DEST_PATH"
+              echo "✅ Đã tải file APK lên: $DEST_PATH"
+            else
+              echo "⚠️ Không tìm thấy file APK trong android-apk/"
+            fi
+          fi
 
   # ──────────────────────────────────────────────────────────────────────────
   # 5. PRODUCTION RELEASE APPROVAL

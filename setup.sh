@@ -87,12 +87,15 @@ if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
   exit 0
 fi
 
-# ── Xác định đường dẫn template ─────────────────────────────────────────────
+# ── Xác định đường dẫn template / configs ────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATE_DIR="$SCRIPT_DIR/templates"
+TEMPLATE_DIR="$SCRIPT_DIR/configs"
+if [ ! -d "$TEMPLATE_DIR" ] && [ -d "$SCRIPT_DIR/templates" ]; then
+  TEMPLATE_DIR="$SCRIPT_DIR/templates"
+fi
 
 if [ ! -d "$TEMPLATE_DIR" ]; then
-  echo -e "${RED}❌ Không tìm thấy thư mục templates/ tại: $TEMPLATE_DIR${NC}"
+  echo -e "${RED}❌ Không tìm thấy thư mục configs/ hoặc templates/ tại: $SCRIPT_DIR${NC}"
   exit 1
 fi
 
@@ -139,17 +142,31 @@ echo -e "${CYAN}🔧 Thay thế placeholder bằng cấu hình dự án...${NC}"
 replace_placeholders() {
   local file="$1"
   if [ -f "$file" ]; then
-    sed -i '' \
-      -e "s/{{PROJECT_NAME}}/$PROJECT_NAME/g" \
-      -e "s/{{BUNDLE_ID_IOS}}/$BUNDLE_ID_IOS/g" \
-      -e "s/{{PACKAGE_NAME_ANDROID}}/$PACKAGE_NAME_ANDROID/g" \
-      -e "s/{{JIRA_PREFIX}}/$JIRA_PREFIX/g" \
-      -e "s/{{AWS_REGION}}/$AWS_REGION/g" \
-      -e "s/{{AWS_S3_BUCKET}}/$AWS_S3_BUCKET/g" \
-      -e "s/{{MAIN_BRANCH}}/$MAIN_BRANCH/g" \
-      -e "s/{{NODE_VERSION}}/$NODE_VERSION/g" \
-      -e "s/{{XCODE_VERSION}}/$XCODE_VERSION/g" \
-      "$file" 2>/dev/null || true
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      sed -i '' \
+        -e "s/{{PROJECT_NAME}}/$PROJECT_NAME/g" \
+        -e "s/{{BUNDLE_ID_IOS}}/$BUNDLE_ID_IOS/g" \
+        -e "s/{{PACKAGE_NAME_ANDROID}}/$PACKAGE_NAME_ANDROID/g" \
+        -e "s/{{JIRA_PREFIX}}/$JIRA_PREFIX/g" \
+        -e "s/{{AWS_REGION}}/$AWS_REGION/g" \
+        -e "s/{{AWS_S3_BUCKET}}/$AWS_S3_BUCKET/g" \
+        -e "s/{{MAIN_BRANCH}}/$MAIN_BRANCH/g" \
+        -e "s/{{NODE_VERSION}}/$NODE_VERSION/g" \
+        -e "s/{{XCODE_VERSION}}/$XCODE_VERSION/g" \
+        "$file" 2>/dev/null || true
+    else
+      sed -i \
+        -e "s/{{PROJECT_NAME}}/$PROJECT_NAME/g" \
+        -e "s/{{BUNDLE_ID_IOS}}/$BUNDLE_ID_IOS/g" \
+        -e "s/{{PACKAGE_NAME_ANDROID}}/$PACKAGE_NAME_ANDROID/g" \
+        -e "s/{{JIRA_PREFIX}}/$JIRA_PREFIX/g" \
+        -e "s/{{AWS_REGION}}/$AWS_REGION/g" \
+        -e "s/{{AWS_S3_BUCKET}}/$AWS_S3_BUCKET/g" \
+        -e "s/{{MAIN_BRANCH}}/$MAIN_BRANCH/g" \
+        -e "s/{{NODE_VERSION}}/$NODE_VERSION/g" \
+        -e "s/{{XCODE_VERSION}}/$XCODE_VERSION/g" \
+        "$file" 2>/dev/null || true
+    fi
   fi
 }
 
@@ -222,7 +239,7 @@ echo ""
 
 # Hỏi người dùng có muốn tự động chạy setup-github-rules.sh ngay không
 if command -v gh &> /dev/null; then
-  read -p "$(echo -e ${YELLOW}Bạn có muốn chạy ./setup-github-rules.sh để tự tạo Teams & Rulesets trên GitHub Org ngay bây giờ? \(y/N\): ${NC})" RUN_RULES
+  read -p "$(echo -e "${YELLOW}Bạn có muốn chạy ./setup-github-rules.sh để tự tạo Teams & Rulesets trên GitHub Org ngay bây giờ? (y/N): ${NC}")" RUN_RULES
   if [[ "$RUN_RULES" == "y" || "$RUN_RULES" == "Y" ]]; then
     cd "$TARGET_DIR" && ./setup-github-rules.sh
   fi
