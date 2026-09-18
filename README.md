@@ -15,13 +15,15 @@
 1. [Tại sao cần mô hình Centralized CI/CD?](#-tại-sao-cần-mô-hình-centralized-cicd)
 2. [Cấu trúc Repository](#-cấu-trúc-repository)
 3. [Chuẩn bị trước khi triển khai (Làm 1 lần duy nhất)](#-chuẩn-bị-trước-khi-triển-khai-làm-1-lần-duy-nhất)
-4. [Hướng dẫn tích hợp vào một dự án mới](#-hướng-dẫn-tích-hợp-vào-một-dự-án-mới)
-5. [Chi tiết các công cụ & Script cốt lõi](#-chi-tiết-các-công-cụ--script-cốt-lõi)
+4. [Hướng dẫn tích hợp vào một dự án mới (Onboarding Checklist)](#-hướng-dẫn-tích-hợp-vào-một-dự-án-mới-onboarding-checklist)
+5. [Checklist Đẩy Google Play Store (Android Release)](#-checklist-đẩy-google-play-store-android-release)
+6. [Checklist Phân phối OTA Web Distribution](#-checklist-phân-phối-ota-web-distribution)
+7. [Chi tiết các công cụ & Script cốt lõi](#-chi-tiết-các-công-cụ--script-cốt-lõi)
    - [`setup-github-rules.sh` — Tự động hoá Governance & Teams](#1-setup-github-rulessh--tự-động-hoá-governance--teams)
    - [`init-cicd.sh` — Interactive CLI & 70 Test Cases Health Check](#2-init-cicdsh--interactive-cli--70-test-cases-health-check)
    - [`configs/Dangerfile.ts` — Trọng tài Review Pull Request](#3-dangerfilets--trọng-tài-review-pr-tự-động)
    - [`src/featureFlags.js` — DJB2 Deterministic User Bucketing](#4-featureflagsjs--rollout-theo-tỷ-lệ--kill-switch)
-6. [Các câu hỏi thường gặp (FAQ)](#-các-câu-hỏi-thường-gặp-faq)
+8. [Các câu hỏi thường gặp (FAQ)](#-các-câu-hỏi-thường-gặp-faq)
 
 ---
 
@@ -86,83 +88,156 @@ mobile-cicd-admin/
 
 ## ⚙️ Chuẩn bị trước khi triển khai (Làm 1 lần duy nhất)
 
-Trước khi bắt đầu gắn CI/CD vào các repo con, Admin thực hiện 3 cấu hình nền tảng:
+- [ ] **Bước 1: Bật quyền Reusable Workflow cho Organization (hoặc để Public nếu là Personal Account)**
+  - Cho phép các repo ứng dụng gọi được workflow từ repo này:
+    - [ ] Mở repo **`mobile-cicd-admin`** trên trình duyệt.
+    - [ ] Vào **Settings** ➔ **Actions** ➔ **General**.
+    - [ ] Cuộn xuống mục **Access** ở cuối trang, chọn: ☑️ **"Accessible from repositories in the 'phong-mobile' organization"** (hoặc để repo chế độ **Public** nếu dùng tài khoản cá nhân).
+    - [ ] Bấm **Save**.
 
-### 1. Bật quyền Reusable Workflow cho Organization
-Cho phép các repo ứng dụng trong Org `phong-mobile` gọi được workflow từ repo này:
-1. Mở repo **`mobile-cicd-admin`** trên trình duyệt.
-2. Vào **Settings** ➔ **Actions** ➔ **General**.
-3. Cuộn xuống mục **Access** ở cuối trang, chọn:
-   * ☑️ **"Accessible from repositories in the 'phong-mobile' organization"**.
-4. Bấm **Save**.
+- [ ] **Bước 2: Cấu hình Organization Secrets (hoặc Repository Secrets)**
+  - Vào **Organization Settings** ➔ **Secrets and variables** ➔ **Actions** (hoặc Settings của repo ứng dụng):
+    - [ ] `SLACK_WEBHOOK_URL`: Webhook nhận thông báo kết quả build và link tải.
+    - [ ] `TEAMS_WEBHOOK_URL`: Webhook nhận thẻ Microsoft Teams (tuỳ chọn).
+    - [ ] `AWS_ACCESS_KEY_ID` & `AWS_SECRET_ACCESS_KEY`: Tài khoản AWS IAM để tải bản build lên S3.
+    - [ ] `AWS_S3_BUCKET` & `AWS_REGION`: Tên bucket và region S3 lưu trữ bản build.
+    - [ ] `ANDROID_KEYSTORE_BASE64`: Keystore ký số file AAB/APK.
+    - [ ] `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`: Mật khẩu Keystore.
+    - [ ] `OTA_SERVER_URL`: Địa chỉ máy chủ OTA Web Portal (VD: `https://ota-distribution-v1.onrender.com`).
+    - [ ] `GPLAY_SERVICE_ACCOUNT_JSON`: Service Account JSON của Google Cloud Console để đẩy Google Play Store.
+    - [ ] **Repository access**: Chọn **"All repositories"**.
 
-### 2. Cấu hình Organization Secrets
-Để không phải cấu hình lại key cho từng repo, vào **Organization Settings** (`https://github.com/organizations/phong-mobile/settings/secrets/actions`) và thêm các secrets:
-* `SLACK_WEBHOOK_URL`: Webhook nhận thông báo kết quả build và link tải.
-* `AWS_ACCESS_KEY_ID` & `AWS_SECRET_ACCESS_KEY`: Tài khoản AWS IAM để tải bản build lên S3.
-* `AWS_S3_BUCKET` & `AWS_REGION`: Tên bucket và region S3 lưu trữ bản build.
-* `ANDROID_KEYSTORE_BASE64`: Keystore ký số file AAB/APK (nếu có).
-* **Repository access**: Chọn **"All repositories"**.
+- [ ] **Bước 3: Chuẩn bị GitHub CLI trên máy Admin**
+  - [ ] Đảm bảo máy của bạn đã cài đặt GitHub CLI (`gh`):
+    ```bash
+    # Đăng nhập
+    gh auth login
 
-### 3. Chuẩn bị GitHub CLI trên máy Admin
-Đảm bảo máy của bạn đã cài đặt GitHub CLI (`gh`) và đăng nhập với tài khoản Admin của `phong-mobile`:
-```bash
-# Đăng nhập
-gh auth login
+    # Cấp đủ quyền quản trị Org (admin:org, repo)
+    gh auth refresh -s admin:org,repo
+    ```
 
-# Cấp đủ quyền quản trị Org (admin:org, repo)
-gh auth refresh -s admin:org,repo
-```
+---
+
+## 🚀 Hướng dẫn tích hợp vào một dự án mới (Onboarding Checklist)
+
+Quy trình chuẩn từng bước khi gắn CI/CD vào một ứng dụng mới (ví dụ: `game_platform` hoặc `my-awesome-app`):
+
+- [ ] **Bước 1: Tạo repo trên GitHub**
+  - [ ] Vào GitHub ➔ Tạo repo mới.
+  - [ ] ⚠️ **Lưu ý**: Tích chọn **"Add a README file"** để tạo sẵn nhánh `main` *(Bắt buộc phải có nhánh `main` trước thì mới tạo được Ruleset bảo vệ)*.
+
+- [ ] **Bước 2: Cài đặt quyền Workflow Permissions (Bắt buộc — Làm trên GitHub)**
+  - [ ] Vào repo ➔ **Settings** ➔ **Actions** ➔ **General**.
+  - [ ] Kéo xuống mục **Workflow permissions**:
+    - [ ] Chọn: 🔘 **Read and write permissions** *(để workflow có quyền upload Artifacts APK/AAB, cập nhật commit status)*.
+    - [ ] Tích chọn: ☑️ **Allow GitHub Actions to create and approve pull requests**.
+  - [ ] Bấm **Save**.
+
+- [ ] **Bước 3: Khai báo Secrets cho dự án**
+  - [ ] Vào **Settings** ➔ **Secrets and variables** ➔ **Actions** trên repo con (nếu chưa cấu hình ở cấp Organization).
+  - [ ] Thêm các Secrets cần thiết theo nhu cầu tính năng (Slack, AWS, Keystore, Google Play).
+
+- [ ] **Bước 4: Thiết lập Rulesets & Dual Approval (Admin)**
+  - [ ] Tại thư mục repo `mobile-cicd-admin`, chạy:
+    ```bash
+    ./setup-github-rules.sh
+    ```
+    - [ ] **Organization / Owner**: Nhập `phong-mobile` hoặc `username` cá nhân của bạn.
+    - [ ] **Repository**: Nhập tên repo ứng dụng (ví dụ: `game_platform`).
+    - [ ] **Xác nhận 2FA**: Gõ `CONFIRM_ADMIN`.
+  - [ ] ⏱️ **Sau 15 giây**: Repo mới đã có đầy đủ 3 Teams, Environments có Dual Approval và Branch/Tag Protection.
+
+- [ ] **Bước 5: Thêm file `.github/workflows/ci.yml` vào repo ứng dụng**
+  - [ ] Tạo duy nhất 1 file tại đường dẫn: `.github/workflows/ci.yml`:
+    ```yaml
+    name: "Enterprise Mobile CI/CD"
+
+    on:
+      push:
+        branches: [main, dev]
+        tags: ['v*.*.*']
+      pull_request:
+        branches: [main, dev]
+      workflow_dispatch:
+        inputs:
+          environment:
+            description: "Môi trường deploy (staging / production)"
+            required: false
+            default: "staging"
+
+    jobs:
+      admin-pipeline:
+        uses: phong-mobile/mobile-cicd-admin/.github/workflows/master-pipeline.yml@main
+        secrets: inherit
+    ```
+
+- [ ] **Bước 6: Thêm `Makefile` & Fastlane lanes cho React Native**
+  - [ ] Copy `configs/Makefile` vào gốc dự án ứng dụng (`Makefile`).
+  - [ ] Copy `configs/android/fastlane/Fastfile` vào `android/fastlane/Fastfile`.
+  - [ ] Copy `configs/ios/fastlane/Fastfile` vào `ios/fastlane/Fastfile`.
+  - [ ] Copy `ota-distribution/scripts/upload-build.sh` vào `scripts/upload-build.sh`.
+
+- [ ] **Bước 7: Chạy kiểm tra nhanh nội bộ (Local Health Check)**
+  - [ ] Kiểm tra lệnh trợ giúp: `make help`
+  - [ ] Kiểm tra TypeScript: `make type-check`
+  - [ ] Chạy Unit Test: `make unit-test`
+  - [ ] Kiểm tra nhanh 15 TCs bằng lệnh: `./init-cicd.sh /path/to/project`
+
+- [ ] **Bước 8: Push code lên GitHub để kích hoạt Pipeline**
+  - [ ] Commit toàn bộ cấu hình:
+    ```bash
+    git add .
+    git commit -m "ci: integrate centralized mobile CI/CD pipeline"
+    git push origin main
+    ```
+  - [ ] Mở tab **Actions** trên GitHub để theo dõi pipeline chạy tự động.
 
 ---
 
-## 🚀 Hướng dẫn tích hợp vào một dự án mới
+## 🏪 Checklist Đẩy Google Play Store (Android Release)
 
-Quy trình chuẩn khi onboard một ứng dụng mới (ví dụ: `my-awesome-app`):
-
-### Bước 1: Tạo repo mới trong Organization
-* Vào Organization `phong-mobile` ➔ Tạo repo mới tên `my-awesome-app`.
-* ⚠️ **Lưu ý**: Tích chọn **"Add a README file"** để tạo sẵn nhánh `main`. *(Bắt buộc phải có nhánh `main` thì script mới tạo được Ruleset bảo vệ)*.
-
-### Bước 2: Admin chạy script thiết lập Ruleset & Quyền hạn
-Tại thư mục repo `mobile-cicd-admin`, Admin chạy:
-```bash
-./setup-github-rules.sh
-```
-* **Organization**: Nhập `phong-mobile` (Enter lấy mặc định).
-* **Repository**: Nhập tên repo ứng dụng (ví dụ: `my-awesome-app`).
-* **Xác nhận 2FA**: Gõ `CONFIRM_ADMIN`.
-
-> ⏱️ **Sau 15 giây**: Repo mới đã có đầy đủ 3 Teams, Environments có Dual Approval và Branch/Tag Protection.
-
-### Bước 3: Lập trình viên thêm file `ci.yml` vào repo ứng dụng
-Trên repo `my-awesome-app`, tạo duy nhất 1 file tại đường dẫn: `.github/workflows/ci.yml`
-
-```yaml
-name: "Enterprise Mobile CI/CD"
-
-on:
-  push:
-    branches: [main, dev]
-    tags: ['v*.*.*']
-  pull_request:
-    branches: [main, dev]
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Môi trường deploy (staging / production)"
-        required: false
-        default: "staging"
-
-jobs:
-  admin-pipeline:
-    uses: phong-mobile/mobile-cicd-admin/.github/workflows/master-pipeline.yml@main
-    secrets: inherit
-```
-
-*(Hoặc lập trình viên có thể đứng tại repo app và gõ lệnh `init-mobile-cicd` từ công cụ `init-cicd.sh` để tự động hóa hoàn toàn).*
+- [ ] **1. Kiểm tra cấu hình Android**:
+  - [ ] `applicationId` và `versionCode` đã được khai báo chuẩn trong `android/app/build.gradle`.
+  - [ ] Keystore Release đã được tạo và chuyển đổi thành chuỗi Base64 (`ANDROID_KEYSTORE_BASE64`).
+- [ ] **2. Biên dịch Signed AAB cục bộ**:
+  - [ ] Chạy lệnh `make appbundle` để kiểm tra quá trình build `bundleRelease`.
+  - [ ] Kiểm tra file AAB tại: `android/app/build/outputs/bundle/release/app-release.aab`.
+- [ ] **3. Đăng ký & Upload thủ công lần đầu trên Google Play Console**:
+  - [ ] Đăng nhập [Google Play Console](https://play.google.com/console).
+  - [ ] Tạo ứng dụng mới và tải file `.aab` lên **Internal Testing** hoặc **Production**.
+  - [ ] Hoàn thành 100% các bảng khai báo bắt buộc:
+    - [ ] App Access (Tài khoản demo đăng nhập).
+    - [ ] Ads (Có hiển thị quảng cáo hay không).
+    - [ ] Content Rating (Xếp hạng độ tuổi IARC).
+    - [ ] Target Audience & Content (Độ tuổi mục tiêu).
+    - [ ] Data Safety Form (Khai báo thu thập dữ liệu).
+    - [ ] Privacy Policy URL (Chính sách bảo mật).
+- [ ] **4. Tự động hoá các lần cập nhật tiếp theo qua CI/CD**:
+  - [ ] Tạo Google Cloud Service Account với quyền **Release Manager** trên Play Console.
+  - [ ] Thêm nội dung JSON key vào GitHub Secret: `GPLAY_SERVICE_ACCOUNT_JSON`.
+  - [ ] Kích hoạt phát hành tự động:
+    - [ ] Đẩy lên Internal Testing: `make internal`
+    - [ ] Đẩy lên Production Draft: `make production-android` hoặc push tag `v1.0.0`.
 
 ---
+
+## 📲 Checklist Phân phối OTA Web Distribution
+
+- [ ] **1. Máy chủ OTA Portal**:
+  - [ ] Khởi chạy máy chủ: `node ota-distribution/server/index.js` (hoặc qua Docker / Render).
+  - [ ] Truy cập Dashboard tại `http://localhost:3000` hoặc domain cấu hình.
+- [ ] **2. Phân phối bản build kèm Metadata**:
+  - [ ] Bản Dev: `make distributed-android-dev m="Gửi bản dev cho @TE_HauTV"`
+  - [ ] Bản Beta: `make distributed-android-beta m="Bản test tính năng thanh toán cho QA"`
+  - [ ] Bản Prod: `make distributed-android-prod m="Bản phát hành chính thức"`
+- [ ] **3. Cài đặt & Quét mã QR**:
+  - [ ] Mở camera điện thoại quét mã QR hiển thị trên màn hình popup.
+  - [ ] Đối với iOS: Mở Safari truy cập trang `install.html` và xác nhận cài đặt Enterprise Certificate.
+  - [ ] Đối với Android: Tải trực tiếp file `.apk` và cài đặt.
+
+---
+
 
 ## 🛠️ Chi tiết các công cụ & Script cốt lõi
 
