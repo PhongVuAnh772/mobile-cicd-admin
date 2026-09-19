@@ -4,8 +4,8 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: cd ota-distribution/server && npm install
-    startCommand: cd ota-distribution/server && node index.js
+    buildCommand: npm install
+    startCommand: node ota-distribution/server/index.js
     envVars:
       - key: PORT
         value: 3000
