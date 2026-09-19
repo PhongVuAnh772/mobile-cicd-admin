@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ota-distribution-v1
+    name: mobile-cicd-admin
     runtime: node
     region: singapore
     plan: free
@@ -11,7 +11,7 @@ services:
       - key: PORT
         value: 3000
       - key: BASE_URL
-        value: https://ota-distribution-v1.onrender.com
+        value: https://mobile-cicd-admin.onrender.com
       - key: NODE_ENV
         value: production
       - key: AWS_S3_BUCKET

@@ -114,7 +114,7 @@ mobile-cicd-admin/
     - [ ] `APP_STORE_CONNECT_API_KEY_ISSUER_ID`: Issuer ID dạng UUID của App Store Connect API.
     - [ ] `APPLE_CERTIFICATE_BASE64` & `APPLE_CERTIFICATE_PASSWORD`: Distribution Certificate `.p12` mã hoá Base64 & mật khẩu.
     - [ ] `PROVISIONING_PROFILE_BASE64`: Mobile Provisioning Profile mã hoá Base64.
-    - [ ] `OTA_SERVER_URL`: Địa chỉ máy chủ OTA Web Portal (VD: `https://ota-distribution-v1.onrender.com`).
+    - [ ] `OTA_SERVER_URL`: Địa chỉ máy chủ OTA Web Portal (VD: `https://mobile-cicd-admin.onrender.com`).
     - [ ] **Repository access**: Chọn **"All repositories"**.
 
 - [ ] **Bước 3: Hướng dẫn nhanh lấy Telegram Bot Token & Chat ID (1 Phút)**

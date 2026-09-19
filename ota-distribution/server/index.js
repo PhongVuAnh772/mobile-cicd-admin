@@ -14,11 +14,17 @@ const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 // Load environment variables
 dotenv.config();
 
+const PORT = process.env.PORT || 3000;
+let BASE_URL = process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+if (BASE_URL.includes('ota-distribution-v1.onrender.com')) {
+  BASE_URL = process.env.RENDER_EXTERNAL_URL || 'https://mobile-cicd-admin.onrender.com';
+}
+
 console.log("==========================================================================");
 console.log("🚀 MOBILE OTA & MULTI-ENVIRONMENT DISTRIBUTION SERVER");
 console.log("==========================================================================");
-console.log("PORT:          ", process.env.PORT || 3000);
-console.log("BASE_URL:      ", process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`);
+console.log("PORT:          ", PORT);
+console.log("BASE_URL:      ", BASE_URL);
 console.log("S3 Configured: ", {
     bucket: !!process.env.AWS_S3_BUCKET,
     accessKey: !!process.env.AWS_ACCESS_KEY_ID,
@@ -28,8 +34,6 @@ console.log("S3 Configured: ", {
 console.log("==========================================================================");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 // AWS S3 Configuration
 const s3Client = new S3Client({

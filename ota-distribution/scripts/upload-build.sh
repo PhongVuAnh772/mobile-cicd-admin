@@ -9,7 +9,7 @@
 set -e
 
 # Mặc định
-SERVER_URL="${OTA_SERVER_URL:-${BASE_URL:-https://ota-distribution-v1.onrender.com}}"
+SERVER_URL="${OTA_SERVER_URL:-${BASE_URL:-https://mobile-cicd-admin.onrender.com}}"
 BUILD_ENV="${BUILD_ENV:-dev}"
 FLAVOR="${FLAVOR:-dev}"
 MESSAGE="${MESSAGE:-${M:-Bản build nội bộ mới}}"
