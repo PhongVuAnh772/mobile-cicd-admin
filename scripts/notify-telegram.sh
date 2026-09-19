@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ============================================================================
-# 📢 TELEGRAM NOTIFICATION SCRIPT (MATCHING VUIHOC MOBILE BUILDER CARD STYLE)
+# 📢 TELEGRAM NOTIFICATION SCRIPT (MOBILE BUILDER PHOTO CARD STYLE)
 # ============================================================================
-# Định dạng chuẩn theo phong cách Mobile Builder:
-#   [Banner Image: Android hoặc iOS Logo + Brand]
+# Định dạng chuẩn theo phong cách Mobile Builder Card:
+#   [Banner Image: Android hoặc iOS Logo]
 #   # {APP_NAME} {PLATFORM} {ENV}
 #   🚦 Version: {VERSION}+{BUILD_NUMBER}
 #   🌿 Branch: {BRANCH}
-#   👨‍💻 By: @{AUTHOR} <{EMAIL}>
+#   👨‍💻 By: @{AUTHOR}
 #   📝 Note: {NOTE}
 #   [ 🔗 Install App ]
 # ============================================================================
@@ -108,11 +108,12 @@ fi
 
 if [ -z "$AUTHOR" ]; then
   GIT_NAME=$(git log -1 --pretty=format:'%an' 2>/dev/null || echo "$USER")
-  GIT_EMAIL=$(git log -1 --pretty=format:'%ae' 2>/dev/null || echo "")
-  if [ -n "$GIT_EMAIL" ]; then
-    AUTHOR="@@TE_PhongVA <${GIT_EMAIL}>"
+  if [ -n "$TELEGRAM_USERNAME" ]; then
+    AUTHOR="@${TELEGRAM_USERNAME#@}"
+  elif [ -n "$GIT_NAME" ]; then
+    AUTHOR="@${GIT_NAME}"
   else
-    AUTHOR="@@TE_PhongVA"
+    AUTHOR="@Developer"
   fi
 fi
 
