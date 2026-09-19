@@ -39,6 +39,14 @@ inputs:
     default: ""
 
   # ── Link download / QR ─────────────────────────────────────────
+  web_url:
+    description: "Link Web Install (Portal/Landing page)"
+    required: false
+    default: ""
+  s3_url:
+    description: "Link tải file trực tiếp từ S3"
+    required: false
+    default: ""
   apk_url:
     description: "Link tải APK (Ad-Hoc)"
     required: false
@@ -379,6 +387,8 @@ runs:
         TELEGRAM_BOT_TOKEN: ${{ inputs.telegram_bot_token }}
         TELEGRAM_CHAT_ID: ${{ inputs.telegram_chat_id }}
         TELEGRAM_THREAD_ID: ${{ inputs.telegram_thread_id }}
+        WEB_URL: ${{ inputs.web_url }}
+        S3_URL: ${{ inputs.s3_url || inputs.apk_url || inputs.ipa_url }}
         TITLE: ${{ steps.payload.outputs.TITLE }}
         BODY: ${{ steps.payload.outputs.BODY }}
       run: |
@@ -390,6 +400,8 @@ runs:
         thread_id = os.environ.get('TELEGRAM_THREAD_ID')
         title = os.environ.get('TITLE') or 'CI/CD Notification'
         body = os.environ.get('BODY') or ''
+        web_url = os.environ.get('WEB_URL') or ''
+        s3_url = os.environ.get('S3_URL') or ''
         run_url = f'{os.environ.get(\"GITHUB_SERVER_URL\")}/{os.environ.get(\"GITHUB_REPOSITORY\")}/actions/runs/{os.environ.get(\"GITHUB_RUN_ID\")}'
         repo_url = f'{os.environ.get(\"GITHUB_SERVER_URL\")}/{os.environ.get(\"GITHUB_REPOSITORY\")}'
         repo = os.environ.get('GITHUB_REPOSITORY') or ''
@@ -406,17 +418,26 @@ runs:
             f'🔗 <a href=\"{run_url}\">GitHub Actions #{run_num}</a> · <code>{repo}</code>'
         )
 
+        keyboard = []
+        links_row = []
+        if web_url:
+            links_row.append({'text': '🌐 Link Web', 'url': web_url})
+        if s3_url:
+            links_row.append({'text': '📦 Link S3', 'url': s3_url})
+        if links_row:
+            keyboard.append(links_row)
+
+        keyboard.append([
+            {'text': '📋 Xem chi tiết', 'url': run_url},
+            {'text': '📦 Repository', 'url': repo_url}
+        ])
+
         payload = {
             'chat_id': chat_id,
             'text': text,
             'parse_mode': 'HTML',
             'disable_web_page_preview': True,
-            'reply_markup': {
-                'inline_keyboard': [[
-                    {'text': '📋 Xem chi tiết', 'url': run_url},
-                    {'text': '📦 Repository', 'url': repo_url}
-                ]]
-            }
+            'reply_markup': {'inline_keyboard': keyboard}
         }
         if thread_id:
             payload['message_thread_id'] = int(thread_id) if thread_id.isdigit() else thread_id

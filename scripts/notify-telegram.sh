@@ -42,6 +42,10 @@ BRANCH=""
 AUTHOR=""
 MESSAGE=""
 INSTALL_URL=""
+WEB_URL=""
+S3_URL=""
+WEB_TEXT="🌐 Link Web"
+S3_TEXT="📦 Link S3"
 BANNER_PATH=""
 STATUS="success"
 TITLE=""
@@ -61,7 +65,11 @@ while [[ "$#" -gt 0 ]]; do
     --branch|-b) BRANCH="$2"; shift ;;
     --author|-a) AUTHOR="$2"; shift ;;
     --message|--note|-m) MESSAGE="$2"; shift ;;
+    --web-url|--web) WEB_URL="$2"; shift ;;
+    --s3-url|--s3) S3_URL="$2"; shift ;;
     --install-url|--url) INSTALL_URL="$2"; shift ;;
+    --web-text) WEB_TEXT="$2"; shift ;;
+    --s3-text) S3_TEXT="$2"; shift ;;
     --photo|--banner) BANNER_PATH="$2"; shift ;;
     --status) STATUS="$2"; shift ;;
     --title) TITLE="$2"; shift ;;
@@ -174,16 +182,32 @@ if [ -n "$MESSAGE" ]; then
 📝 <b>Note:</b> ${CLEAN_MSG}"
 fi
 
-# Chuẩn bị Inline Keyboard Button "Install App"
+# Đồng bộ INSTALL_URL và WEB_URL
+[ -n "$INSTALL_URL" ] && [ -z "$WEB_URL" ] && WEB_URL="$INSTALL_URL"
+
+# Chuẩn bị Inline Keyboard Buttons: 1 Link Web và Link S3
 REPLY_MARKUP=""
-if [ -n "$INSTALL_URL" ]; then
+if [ -n "$WEB_URL" ] || [ -n "$S3_URL" ]; then
   REPLY_MARKUP=$(python3 -c "
 import json
-print(json.dumps({
-  'inline_keyboard': [[
-    {'text': '🔗 Install App', 'url': '$INSTALL_URL'}
-  ]]
-}))
+
+web_url = '''$WEB_URL'''.strip()
+s3_url = '''$S3_URL'''.strip()
+web_text = '''$WEB_TEXT'''.strip() or '🌐 Link Web'
+s3_text = '''$S3_TEXT'''.strip() or '📦 Link S3'
+
+# Nếu chỉ có duy nhất 1 link và truyền qua --install-url mà không đặt custom text
+if web_url and not s3_url and '''$INSTALL_URL'''.strip() and '''$WEB_TEXT'''.strip() == '🌐 Link Web':
+    web_text = '🔗 Install App'
+
+row = []
+if web_url:
+    row.append({'text': web_text, 'url': web_url})
+if s3_url:
+    row.append({'text': s3_text, 'url': s3_url})
+
+buttons = [row] if row else []
+print(json.dumps({'inline_keyboard': buttons}))
 ")
 fi
 
@@ -195,9 +219,8 @@ if [ "$DRY_RUN" = true ]; then
   echo "🖼️  Banner Image:  ${BANNER_PATH:-[Không có banner -> Dùng text]}"
   echo "💬 Caption:"
   echo "$CAPTION"
-  if [ -n "$INSTALL_URL" ]; then
-    echo "🔘 Button:        [ 🔗 Install App ] ➔ $INSTALL_URL"
-  fi
+  [ -n "$WEB_URL" ] && echo "🔘 Button 1:      [ $WEB_TEXT ] ➔ $WEB_URL"
+  [ -n "$S3_URL" ]  && echo "🔘 Button 2:      [ $S3_TEXT ] ➔ $S3_URL"
   echo "══════════════════════════════════════════════════════════════════════════"
   exit 0
 fi

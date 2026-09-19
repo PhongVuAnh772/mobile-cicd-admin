@@ -107,10 +107,33 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
   echo "✅ ĐẨY BẢN BUILD THÀNH CÔNG!"
   INSTALL_URL=$(echo "$HTTP_BODY" | grep -o '"installUrl":"[^"]*' | cut -d'"' -f4 || true)
   WEB_URL=$(echo "$HTTP_BODY" | grep -o '"webInstallUrl":"[^"]*' | cut -d'"' -f4 || true)
+  FILE_URL=$(echo "$HTTP_BODY" | grep -o '"fileUrl":"[^"]*' | cut -d'"' -f4 || true)
+  S3_URL="${FILE_URL:-$INSTALL_URL}"
   echo "👉 Link Portal:   ${SERVER_URL}"
-  [ -n "$WEB_URL" ] && echo "👉 Link cài đặt:  ${WEB_URL}"
-  [ -n "$INSTALL_URL" ] && echo "👉 Link Direct:  ${INSTALL_URL}"
+  [ -n "$WEB_URL" ] && echo "👉 Link Web:      ${WEB_URL}"
+  [ -n "$S3_URL" ] && echo "👉 Link S3:       ${S3_URL}"
   echo "=========================================================================="
+
+  # Tự động gửi Mobile Builder Card lên Telegram nếu có cấu hình
+  PLATFORM_DETECT="android"
+  [[ "$FILE_NAME" =~ \.ipa$ ]] && PLATFORM_DETECT="ios"
+  
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  NOTIFY_SCRIPT="${SCRIPT_DIR}/../../scripts/notify-telegram.sh"
+  [ ! -f "$NOTIFY_SCRIPT" ] && NOTIFY_SCRIPT="${SCRIPT_DIR}/notify-telegram.sh"
+  if [ -f "$NOTIFY_SCRIPT" ]; then
+    bash "$NOTIFY_SCRIPT" \
+      --app-name "${APP_NAME:-MobileApp}" \
+      --platform "$PLATFORM_DETECT" \
+      --env "$BUILD_ENV" \
+      --version "$VERSION" \
+      --build-num "$BUILD_NUM" \
+      --branch "$BRANCH" \
+      --author "$AUTHOR" \
+      --note "$MESSAGE" \
+      --web-url "$WEB_URL" \
+      --s3-url "$S3_URL" || true
+  fi
 else
   echo "❌ Lỗi khi upload (HTTP Status $HTTP_STATUS):"
   echo "$HTTP_BODY"

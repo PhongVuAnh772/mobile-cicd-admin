@@ -192,7 +192,7 @@ production-android:
 ### 📢 TELEGRAM NOTIFICATIONS __________________________
 .PHONY: notify-telegram
 notify-telegram:
-	@bash scripts/notify-telegram.sh -m "$(MESSAGE)" --status "$(or $(STATUS),info)" --url "$(or $(URL),)"
+	@bash scripts/notify-telegram.sh -m "$(MESSAGE)" --status "$(or $(STATUS),info)" --web-url "$(or $(WEB_URL),$(or $(URL),))" --s3-url "$(or $(S3_URL),)"
 
 .PHONY: test-telegram
 test-telegram:
