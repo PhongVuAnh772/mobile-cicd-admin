@@ -8,6 +8,20 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Đọc .env nếu có
+if [ -f "${PROJECT_ROOT}/.env" ]; then
+  set -a
+  source "${PROJECT_ROOT}/.env"
+  set +a
+elif [ -f ".env" ]; then
+  set -a
+  source ".env"
+  set +a
+fi
+
 # Mặc định
 SERVER_URL="${OTA_SERVER_URL:-${BASE_URL:-https://mobile-cicd-admin.onrender.com}}"
 BUILD_ENV="${BUILD_ENV:-dev}"
@@ -109,21 +123,36 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
   WEB_URL=$(echo "$HTTP_BODY" | grep -o '"webInstallUrl":"[^"]*' | cut -d'"' -f4 || true)
   FILE_URL=$(echo "$HTTP_BODY" | grep -o '"fileUrl":"[^"]*' | cut -d'"' -f4 || true)
   S3_URL="${FILE_URL:-$INSTALL_URL}"
+
+  # Tự động đồng bộ lên AWS S3 nếu có S3 credentials và server chưa đẩy S3
+  if [[ "$FILE_URL" != *"amazonaws.com"* ]] && [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_S3_BUCKET" ]; then
+    echo "☁️ Đang đồng bộ bản build lên AWS S3 ($AWS_S3_BUCKET)..."
+    S3_KEY="ota/$(date +%s)-${FILE_NAME}"
+    python3 -c "
+import os, sys, boto3
+file_path, key = sys.argv[1], sys.argv[2]
+s3 = boto3.client('s3',
+    aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+    aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+    region_name=os.environ.get('AWS_REGION', 'ap-southeast-2')
+)
+s3.upload_file(file_path, os.environ['AWS_S3_BUCKET'], key)
+" "$FILE_PATH" "$S3_KEY" 2>/dev/null && S3_URL="https://${AWS_S3_BUCKET}.s3.${AWS_REGION:-ap-southeast-2}.amazonaws.com/${S3_KEY}" || true
+  fi
+
   echo "👉 Link Portal:   ${SERVER_URL}"
   [ -n "$WEB_URL" ] && echo "👉 Link Web:      ${WEB_URL}"
   [ -n "$S3_URL" ] && echo "👉 Link S3:       ${S3_URL}"
   echo "=========================================================================="
 
-  # Tự động gửi Mobile Builder Card lên Telegram nếu có cấu hình
+  # Tự động gửi Mobile Builder Card lên Telegram với 1 Link Web và 1 Link S3
   PLATFORM_DETECT="android"
   [[ "$FILE_NAME" =~ \.ipa$ ]] && PLATFORM_DETECT="ios"
   
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  NOTIFY_SCRIPT="${SCRIPT_DIR}/../../scripts/notify-telegram.sh"
-  [ ! -f "$NOTIFY_SCRIPT" ] && NOTIFY_SCRIPT="${SCRIPT_DIR}/notify-telegram.sh"
-  if [ -f "$NOTIFY_SCRIPT" ]; then
-    bash "$NOTIFY_SCRIPT" \
-      --app-name "${APP_NAME:-MobileApp}" \
+  if [ -f "${SCRIPT_DIR}/notify-telegram.sh" ]; then
+    bash "${SCRIPT_DIR}/notify-telegram.sh" \
+      --app-name "${APP_NAME:-RetroBox}" \
       --platform "$PLATFORM_DETECT" \
       --env "$BUILD_ENV" \
       --version "$VERSION" \
