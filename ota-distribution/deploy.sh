@@ -1,20 +1,25 @@
 #!/bin/bash
+# ============================================================================
+# 🚀 TRIGGER RENDER DEPLOY (VIA GITHUB & DEPLOY HOOK)
+# ============================================================================
 
-# 1. Build & Push Docker image (Force platform to linux/amd64 for Render)
-echo "🚀 Building and Pushing Docker Image (AMD64)..."
-docker build --platform linux/amd64 -t phongva/ota-distribution:latest .
-docker tag phongva/ota-distribution:latest phongva/ota-distribution:v1
-docker push phongva/ota-distribution:v1
+DEPLOY_HOOK_URL="${RENDER_DEPLOY_HOOK_URL:-$1}"
 
-# 2. Trigger Render Deploy (Dán đường dẫn Deploy Hook của bạn vào đây)
-# Bạn hãy thay URL dưới đây bằng URL bạn lấy từ Render Settings
-DEPLOY_HOOK_URL="BẠN_DÁN_DE_PLOY_HOOK_VÀO_ĐÂY"
+if [ -z "$DEPLOY_HOOK_URL" ]; then
+    echo "ℹ️ Cách dùng: ./deploy.sh [DEPLOY_HOOK_URL]"
+    echo "Hoặc gán biến môi trường: export RENDER_DEPLOY_HOOK_URL=\"https://api.render.com/deploy/...\""
+    echo ""
+    echo "👉 Để deploy tự động bằng GitHub:"
+    echo "   Chỉ cần 'git push origin main', Render sẽ tự động kéo code và deploy Node.js!"
+    exit 0
+fi
 
-if [ "$DEPLOY_HOOK_URL" != "BẠN_DÁN_DE_PLOY_HOOK_VÀO_ĐÂY" ]; then
-    echo "🌐 Triggering Render Deploy..."
-    curl -X POST "$DEPLOY_HOOK_URL"
-    echo -e "\n✅ Done! Check your Render Dashboard for progress."
+echo "🌐 Đang kích hoạt Render Deploy Hook..."
+HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$DEPLOY_HOOK_URL")
+
+if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ]; then
+    echo "✅ Kích hoạt Render Deploy thành công (HTTP $HTTP_STATUS)!"
+    echo "👉 Theo dõi tiến trình tại Render Dashboard."
 else
-    echo "⚠️  Cảnh báo: Bạn chưa dán Deploy Hook URL vào file deploy.sh"
-    echo "Vui lòng dán link lấy từ Render Settings vào biến DEPLOY_HOOK_URL."
+    echo "❌ Lỗi: Render trả về mã HTTP $HTTP_STATUS"
 fi

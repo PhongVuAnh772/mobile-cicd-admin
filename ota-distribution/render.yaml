@@ -1,16 +1,17 @@
 services:
   - type: web
-    name: ota-app-distribution
-    runtime: docker
+    name: ota-distribution-v1
+    runtime: node
     region: singapore
-    dockerContext: .
-    dockerfilePath: ./Dockerfile
-    plan: free # Đổi thành 'starter' nếu muốn gắn Persistent Disk lưu file lâu dài
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
     envVars:
       - key: PORT
         value: 3000
       - key: BASE_URL
-        value: https://ota-distribution-v1.onrender.com # Thay bằng URL public thật của bạn
+        value: https://ota-distribution-v1.onrender.com
       - key: NODE_ENV
         value: production
       - key: AWS_S3_BUCKET
@@ -21,7 +22,3 @@ services:
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
-    # disk:
-    #   name: ota-storage
-    #   mountPath: /app/server/uploads
-    #   sizeGB: 10

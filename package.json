@@ -1,0 +1,13 @@
+{
+  "name": "mobile-cicd-admin-ota",
+  "version": "1.0.0",
+  "description": "Mobile OTA & Multi-Environment App Distribution Server",
+  "main": "ota-distribution/server/index.js",
+  "scripts": {
+    "build": "cd ota-distribution/server && npm install",
+    "start": "cd ota-distribution/server && node index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,12 +1,11 @@
 services:
   - type: web
     name: ota-distribution-v1
-    runtime: docker
+    runtime: node
     region: singapore
-    rootDir: ota-distribution
-    dockerContext: .
-    dockerfilePath: ./Dockerfile
     plan: free
+    buildCommand: cd ota-distribution/server && npm install
+    startCommand: cd ota-distribution/server && node index.js
     envVars:
       - key: PORT
         value: 3000
