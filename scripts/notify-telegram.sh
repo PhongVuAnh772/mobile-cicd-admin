@@ -14,9 +14,18 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 # Đọc .env nếu có
-if [ -f ".env" ]; then
-  export $(grep -E '^(TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID|TELEGRAM_THREAD_ID)=' .env | xargs 2>/dev/null) || true
+if [ -f "${PROJECT_ROOT}/.env" ]; then
+  set -a
+  source "${PROJECT_ROOT}/.env"
+  set +a
+elif [ -f ".env" ]; then
+  set -a
+  source ".env"
+  set +a
 fi
 
 BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
@@ -134,9 +143,9 @@ ENV_DISPLAY=$(echo "$BUILD_ENV" | tr '[:lower:]' '[:upper:]')
 # Tự động chọn Banner Card nếu chưa chỉ định
 if [ -z "$BANNER_PATH" ]; then
   if [ "$PLATFORM_LOWER" = "ios" ]; then
-    POSSIBLE_BANNERS=("assets/banners/ios_banner.png" "../assets/banners/ios_banner.png")
+    POSSIBLE_BANNERS=("${PROJECT_ROOT}/assets/banners/ios_banner.png" "assets/banners/ios_banner.png" "../assets/banners/ios_banner.png")
   else
-    POSSIBLE_BANNERS=("assets/banners/android_banner.png" "../assets/banners/android_banner.png")
+    POSSIBLE_BANNERS=("${PROJECT_ROOT}/assets/banners/android_banner.png" "assets/banners/android_banner.png" "../assets/banners/android_banner.png")
   fi
 
   for b in "${POSSIBLE_BANNERS[@]}"; do
@@ -151,14 +160,17 @@ fi
 CAPTION_HEADER="# ${APP_NAME} ${PLATFORM_DISPLAY} ${ENV_DISPLAY}"
 [ -n "$TITLE" ] && CAPTION_HEADER="$TITLE"
 
+CLEAN_AUTHOR=$(echo "$AUTHOR" | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g')
+
 CAPTION="<b>${CAPTION_HEADER}</b>
 🚦 <b>Version:</b> ${VERSION}+${BUILD_NUM}
 🌿 <b>Branch:</b> ${BRANCH}
-👨‍💻 <b>By:</b> ${AUTHOR}"
+👨‍💻 <b>By:</b> ${CLEAN_AUTHOR}"
 
 if [ -n "$MESSAGE" ]; then
+  CLEAN_MSG=$(echo "$MESSAGE" | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g')
   CAPTION="${CAPTION}
-📝 <b>Note:</b> ${MESSAGE}"
+📝 <b>Note:</b> ${CLEAN_MSG}"
 fi
 
 # Chuẩn bị Inline Keyboard Button "Install App"
@@ -201,13 +213,13 @@ if [ -n "$BANNER_PATH" ] && [ -f "$BANNER_PATH" ]; then
   echo "📤 Đang gửi Mobile Builder Photo Card tới Telegram..."
   CURL_ARGS=(
     -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto"
-    -F "chat_id=${CHAT_ID}"
+    --form-string "chat_id=${CHAT_ID}"
     -F "photo=@${BANNER_PATH}"
-    -F "caption=${CAPTION}"
-    -F "parse_mode=HTML"
+    --form-string "caption=${CAPTION}"
+    --form-string "parse_mode=HTML"
   )
-  [ -n "$THREAD_ID" ] && CURL_ARGS+=(-F "message_thread_id=${THREAD_ID}")
-  [ -n "$REPLY_MARKUP" ] && CURL_ARGS+=(-F "reply_markup=${REPLY_MARKUP}")
+  [ -n "$THREAD_ID" ] && CURL_ARGS+=(--form-string "message_thread_id=${THREAD_ID}")
+  [ -n "$REPLY_MARKUP" ] && CURL_ARGS+=(--form-string "reply_markup=${REPLY_MARKUP}")
 
   RESP=$(curl "${CURL_ARGS[@]}")
   IS_SUCCESS=$(echo "$RESP" | python3 -c "import sys, json; print(json.load(sys.stdin).get('ok', False))" 2>/dev/null || echo "False")
@@ -224,13 +236,13 @@ fi
 echo "📤 Đang gửi tin nhắn văn bản tới Telegram..."
 CURL_ARGS=(
   -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage"
-  -F "chat_id=${CHAT_ID}"
-  -F "text=${CAPTION}"
-  -F "parse_mode=HTML"
-  -F "disable_web_page_preview=true"
+  --form-string "chat_id=${CHAT_ID}"
+  --form-string "text=${CAPTION}"
+  --form-string "parse_mode=HTML"
+  --form-string "disable_web_page_preview=true"
 )
-[ -n "$THREAD_ID" ] && CURL_ARGS+=(-F "message_thread_id=${THREAD_ID}")
-[ -n "$REPLY_MARKUP" ] && CURL_ARGS+=(-F "reply_markup=${REPLY_MARKUP}")
+[ -n "$THREAD_ID" ] && CURL_ARGS+=(--form-string "message_thread_id=${THREAD_ID}")
+[ -n "$REPLY_MARKUP" ] && CURL_ARGS+=(--form-string "reply_markup=${REPLY_MARKUP}")
 
 RESP=$(curl "${CURL_ARGS[@]}")
 IS_SUCCESS=$(echo "$RESP" | python3 -c "import sys, json; print(json.load(sys.stdin).get('ok', False))" 2>/dev/null || echo "False")
@@ -240,3 +252,4 @@ if [ "$IS_SUCCESS" = "True" ]; then
 else
   echo "❌ Gửi thông báo Telegram thất bại: $RESP"
 fi
+

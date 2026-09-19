@@ -54,6 +54,9 @@ help:
 	@echo "  make appbundle                : Build Signed AAB cho Google Play"
 	@echo "  make internal                 : Tăng build number & đẩy Google Play Internal"
 	@echo "  make production-android       : Tăng build number & đẩy Google Play Production"
+	@echo "--- 📢 NOTIFICATIONS (TELEGRAM) --------------------------------------"
+	@echo "  make test-telegram            : Kiểm tra kết nối Telegram Bot"
+	@echo "  make notify-telegram m='...'  : Gửi thông báo tuỳ chỉnh lên Telegram"
 	@echo "======================================================================"
 
 .PHONY: dependencies
@@ -185,3 +188,13 @@ production-android:
 	cd android && fastlane set_next_build_number
 	make appbundle
 	cd android && fastlane production
+
+### 📢 TELEGRAM NOTIFICATIONS __________________________
+.PHONY: notify-telegram
+notify-telegram:
+	@bash scripts/notify-telegram.sh -m "$(MESSAGE)" --status "$(or $(STATUS),info)" --url "$(or $(URL),)"
+
+.PHONY: test-telegram
+test-telegram:
+	@bash scripts/notify-telegram.sh --test
+
