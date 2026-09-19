@@ -52,7 +52,7 @@ while [[ "$#" -gt 0 ]]; do
       echo "  -m, --message MSG     Ghi chú bản build (VD: -m=\"Gửi bản dev cho @TE_HauTV\")"
       echo "  -a, --author AUTHOR   Người build / author tag (VD: @TE_HauTV)"
       echo "  -b, --branch BRANCH   Tên nhánh Git (mặc định: nhánh hiện tại)"
-      echo "  -s, --server URL      Địa chỉ OTA Server (mặc định: http://localhost:3000)"
+      echo "  -s, --server URL      Địa chỉ OTA Server (mặc định: https://mobile-cicd-admin.onrender.com)"
       exit 0
       ;;
     *) echo "⚠️ Tham số không xác định: $1" ;;
