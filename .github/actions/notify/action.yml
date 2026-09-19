@@ -99,6 +99,18 @@ inputs:
     description: "Microsoft Teams Incoming Webhook URL"
     required: false
     default: ""
+  telegram_bot_token:
+    description: "Telegram Bot Token from @BotFather"
+    required: false
+    default: ""
+  telegram_chat_id:
+    description: "Telegram Chat ID or Channel ID"
+    required: false
+    default: ""
+  telegram_thread_id:
+    description: "Telegram Topic/Thread ID (optional)"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -356,3 +368,68 @@ runs:
           ]
         }
         PAYLOAD
+
+    # ────────────────────────────────────────────────────────────────
+    # 4. GỬI TELEGRAM
+    # ────────────────────────────────────────────────────────────────
+    - name: "📢 Gửi Telegram Notification"
+      if: inputs.telegram_bot_token != '' && inputs.telegram_chat_id != ''
+      shell: bash
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ inputs.telegram_bot_token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.telegram_chat_id }}
+        TELEGRAM_THREAD_ID: ${{ inputs.telegram_thread_id }}
+        TITLE: ${{ steps.payload.outputs.TITLE }}
+        BODY: ${{ steps.payload.outputs.BODY }}
+      run: |
+        python3 -c "
+        import urllib.request, json, os, re
+
+        token = os.environ.get('TELEGRAM_BOT_TOKEN')
+        chat_id = os.environ.get('TELEGRAM_CHAT_ID')
+        thread_id = os.environ.get('TELEGRAM_THREAD_ID')
+        title = os.environ.get('TITLE') or 'CI/CD Notification'
+        body = os.environ.get('BODY') or ''
+        run_url = f'{os.environ.get(\"GITHUB_SERVER_URL\")}/{os.environ.get(\"GITHUB_REPOSITORY\")}/actions/runs/{os.environ.get(\"GITHUB_RUN_ID\")}'
+        repo_url = f'{os.environ.get(\"GITHUB_SERVER_URL\")}/{os.environ.get(\"GITHUB_REPOSITORY\")}'
+        repo = os.environ.get('GITHUB_REPOSITORY') or ''
+        run_num = os.environ.get('GITHUB_RUN_NUMBER') or '1'
+
+        html_body = body
+        html_body = re.sub(r'\*(.*?)\*', r'<b>\1</b>', html_body)
+        html_body = re.sub(r'`(.*?)`', r'<code>\1</code>', html_body)
+        html_body = re.sub(r'_(.*?)_', r'<i>\1</i>', html_body)
+
+        text = (
+            f'<b>{title}</b>\n\n'
+            f'{html_body}\n\n'
+            f'🔗 <a href=\"{run_url}\">GitHub Actions #{run_num}</a> · <code>{repo}</code>'
+        )
+
+        payload = {
+            'chat_id': chat_id,
+            'text': text,
+            'parse_mode': 'HTML',
+            'disable_web_page_preview': True,
+            'reply_markup': {
+                'inline_keyboard': [[
+                    {'text': '📋 Xem chi tiết', 'url': run_url},
+                    {'text': '📦 Repository', 'url': repo_url}
+                ]]
+            }
+        }
+        if thread_id:
+            payload['message_thread_id'] = int(thread_id) if thread_id.isdigit() else thread_id
+
+        req = urllib.request.Request(
+            f'https://api.telegram.org/bot{token}/sendMessage',
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        try:
+            with urllib.request.urlopen(req) as resp:
+                print(f'✅ Telegram notification sent successfully (HTTP {resp.status})')
+        except Exception as e:
+            print(f'⚠️ Telegram send failed: {e}')
+        " || echo "⚠️ Telegram send failed (non-blocking)"
+

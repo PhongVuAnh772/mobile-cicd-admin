@@ -101,6 +101,9 @@ mobile-cicd-admin/
   - Vào **Organization Settings** ➔ **Secrets and variables** ➔ **Actions** (hoặc Settings của repo ứng dụng):
     - [ ] `SLACK_WEBHOOK_URL`: Webhook nhận thông báo kết quả build và link tải.
     - [ ] `TEAMS_WEBHOOK_URL`: Webhook nhận thẻ Microsoft Teams (tuỳ chọn).
+    - [ ] `TELEGRAM_BOT_TOKEN`: Token của Telegram Bot lấy từ `@BotFather` (tuỳ chọn).
+    - [ ] `TELEGRAM_CHAT_ID`: ID của Chat cá nhân, Group hoặc Kênh Telegram (tuỳ chọn).
+    - [ ] `TELEGRAM_THREAD_ID`: ID của Topic / Message Thread nếu nhóm bật Forums/Topics (tuỳ chọn).
     - [ ] `AWS_ACCESS_KEY_ID` & `AWS_SECRET_ACCESS_KEY`: Tài khoản AWS IAM để tải bản build lên S3.
     - [ ] `AWS_S3_BUCKET` & `AWS_REGION`: Tên bucket và region S3 lưu trữ bản build.
     - [ ] `ANDROID_KEYSTORE_BASE64`: Keystore ký số file AAB/APK.
@@ -114,7 +117,14 @@ mobile-cicd-admin/
     - [ ] `OTA_SERVER_URL`: Địa chỉ máy chủ OTA Web Portal (VD: `https://ota-distribution-v1.onrender.com`).
     - [ ] **Repository access**: Chọn **"All repositories"**.
 
-- [ ] **Bước 3: Chuẩn bị GitHub CLI trên máy Admin**
+- [ ] **Bước 3: Hướng dẫn nhanh lấy Telegram Bot Token & Chat ID (1 Phút)**
+  - 1. Mở Telegram, tìm kiếm **`@BotFather`** ➔ Gõ `/newbot` ➔ Đặt tên và username cho bot ➔ Copy mã **Token** (`123456789:ABC...`) lưu vào secret `TELEGRAM_BOT_TOKEN`.
+  - 2. Lấy **Chat ID**:
+    - **Gửi tin nhắn riêng**: Tìm **`@userinfobot`** và bấm `/start` ➔ Copy ID của bạn.
+    - **Gửi vào Group**: Thêm Bot vừa tạo vào nhóm ➔ Thêm bot **`@RawDataBot`** vào nhóm để xem `chat.id` (thường bắt đầu bằng `-100...`) ➔ Lưu vào secret `TELEGRAM_CHAT_ID`.
+  - 3. *(Tuỳ chọn)* Nếu nhóm bật chế độ **Topics (Forum)**: Chuột phải vào Topic ➔ Copy Link Topic ➔ Số cuối cùng trên link chính là `message_thread_id` ➔ Lưu vào `TELEGRAM_THREAD_ID`.
+
+- [ ] **Bước 4: Chuẩn bị GitHub CLI trên máy Admin**
   - [ ] Đảm bảo máy của bạn đã cài đặt GitHub CLI (`gh`):
     ```bash
     # Đăng nhập

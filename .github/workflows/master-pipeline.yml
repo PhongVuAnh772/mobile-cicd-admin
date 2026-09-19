@@ -38,6 +38,12 @@ on:
         required: false
       TEAMS_WEBHOOK_URL:
         required: false
+      TELEGRAM_BOT_TOKEN:
+        required: false
+      TELEGRAM_CHAT_ID:
+        required: false
+      TELEGRAM_THREAD_ID:
+        required: false
       AWS_ACCESS_KEY_ID:
         required: false
       AWS_SECRET_ACCESS_KEY:
@@ -441,10 +447,13 @@ jobs:
     needs: [ci-checks, build-android, build-ios]
     if: always() && github.event_name != 'pull_request'
     steps:
-      - name: Send Slack & Teams Rich Card with Buttons
+      - name: Send Slack, Teams & Telegram Rich Notifications with Buttons
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_THREAD_ID: ${{ secrets.TELEGRAM_THREAD_ID }}
           APP_NAME: ${{ inputs.app_name }}
           REF_NAME: ${{ github.ref_name }}
           CI_RESULT: ${{ needs.ci-checks.result }}
@@ -455,6 +464,7 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           STATUS="SUCCESS"
           COLOR="#36a64f"
@@ -581,4 +591,70 @@ jobs:
           else
             echo "ℹ️ TEAMS_WEBHOOK_URL chưa được khai báo trong GitHub Secrets."
           fi
+
+          # ── 3. TELEGRAM RICH CARD WITH INLINE BUTTONS ──
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            echo "💬 Sending Telegram Rich Notification with Buttons..."
+            python3 -c "
+            import urllib.request, json, os
+
+            token = os.environ.get('TELEGRAM_BOT_TOKEN')
+            chat_id = os.environ.get('TELEGRAM_CHAT_ID')
+            thread_id = os.environ.get('TELEGRAM_THREAD_ID')
+            app_name = os.environ.get('APP_NAME') or 'MobileApp'
+            status = os.environ.get('STATUS') or 'UNKNOWN'
+            emoji = os.environ.get('EMOJI') or '📢'
+            ref_name = os.environ.get('REF_NAME') or 'unknown'
+            env = os.environ.get('ENVIRONMENT') or 'production'
+            actor = os.environ.get('ACTOR') or 'developer'
+            ci_res = os.environ.get('CI_RESULT') or 'N/A'
+            build_res = os.environ.get('BUILD_RESULT') or 'N/A'
+            ios_res = os.environ.get('IOS_RESULT') or 'N/A'
+            short_sha = os.environ.get('SHORT_SHA') or ''
+            run_url = os.environ.get('RUN_URL') or ''
+            repo_url = os.environ.get('REPO_URL') or ''
+            run_number = os.environ.get('RUN_NUMBER') or '1'
+
+            text = (
+                f'<b>{emoji} {app_name} — CI/CD {status}</b>\n\n'
+                f'🏷️ <b>App:</b> <code>{app_name}</code>\n'
+                f'🌿 <b>Branch:</b> <code>{ref_name}</code>\n'
+                f'🌍 <b>Environment:</b> <code>{env}</code>\n'
+                f'👤 <b>Actor:</b> @{actor}\n'
+                f'🧪 <b>CI Tests:</b> {ci_res}\n'
+                f'🤖 <b>Android Build:</b> {build_res}\n'
+                f'🍏 <b>iOS Build:</b> {ios_res}\n'
+                f'📌 <b>Commit:</b> <code>{short_sha}</code> | <a href=\"{run_url}\">Pipeline #{run_number}</a>'
+            )
+
+            payload = {
+                'chat_id': chat_id,
+                'text': text,
+                'parse_mode': 'HTML',
+                'disable_web_page_preview': True,
+                'reply_markup': {
+                    'inline_keyboard': [[
+                        {'text': '📋 View Logs', 'url': run_url},
+                        {'text': '📦 Repository', 'url': repo_url}
+                    ]]
+                }
+            }
+            if thread_id:
+                payload['message_thread_id'] = int(thread_id) if thread_id.isdigit() else thread_id
+
+            req = urllib.request.Request(
+                f'https://api.telegram.org/bot{token}/sendMessage',
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'}
+            )
+            try:
+                with urllib.request.urlopen(req) as resp:
+                    print(f'✅ Telegram notification sent successfully (HTTP {resp.status})')
+            except Exception as e:
+                print(f'⚠️ Telegram send failed: {e}')
+            " || echo "⚠️ Telegram send failed (non-blocking)"
+          else
+            echo "ℹ️ TELEGRAM_BOT_TOKEN hoặc TELEGRAM_CHAT_ID chưa được khai báo trong GitHub Secrets."
+          fi
+
 
