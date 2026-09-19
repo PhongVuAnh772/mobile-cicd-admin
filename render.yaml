@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: ota-distribution-v1
+    runtime: docker
+    region: singapore
+    rootDir: ota-distribution
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: BASE_URL
+        value: https://ota-distribution-v1.onrender.com
+      - key: NODE_ENV
+        value: production
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
