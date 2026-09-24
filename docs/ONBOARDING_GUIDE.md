@@ -14,8 +14,9 @@ Tài liệu này cung cấp hướng dẫn đầy đủ, chi tiết từ A-Z đ�
    - [Giai đoạn 4: Thiết lập Quản trị Nhánh & Dual Approval](#giai-đoạn-4-thiết-lập-quản-trị-nhánh--dual-approval)
    - [Giai đoạn 5: Vận hành thực tế & Kiểm thử](#giai-đoạn-5-vận-hành-thực-tế--kiểm-thử)
 3. [Bảng Tra Cứu Toàn Bộ 22 Secrets Chi Tiết](#3-bảng-tra-cứu-toàn-bộ-22-secrets-chi-tiết)
-4. [Sổ Tay Lệnh Hàng Ngày (Cheatsheet)](#4-sổ-tay-lệnh-hàng-ngày-cheatsheet)
-5. [Xử Lý Sự Cố Thường Gặp (Troubleshooting)](#5-xử-lý-sự-cố-thường-gặp-troubleshooting)
+4. [Quy Chuẩn & Luồng Gắn Tag Phát Hành (Release Tagging Rules)](#4-quy-chuẩn--luồng-gắn-tag-phát-hành-release-tagging-rules)
+5. [Sổ Tay Lệnh Hàng Ngày (Cheatsheet)](#5-sổ-tay-lệnh-hàng-ngày-cheatsheet)
+6. [Xử Lý Sự Cố Thường Gặp (Troubleshooting)](#6-xử-lý-sự-cố-thường-gặp-troubleshooting)
 
 ---
 
@@ -262,12 +263,98 @@ Dưới đây là bảng đặc tả chi tiết 100% toàn bộ các Secrets h�
 
 ---
 
-## 4. Sổ Tay Lệnh Hàng Ngày (Cheatsheet)
+## 4. Quy Chuẩn & Luồng Gắn Tag Phát Hành (Release Tagging Rules)
+
+Luồng gắn tag là cơ chế chính thức và duy nhất để kích hoạt quy trình **Production Store Release** (Google Play Store, Apple App Store/TestFlight, AWS S3 Production & OTA).
+
+```mermaid
+flowchart TD
+    A["Dev hoàn thành tính năng trên nhánh 'dev'"] --> B["Tạo PR vào nhánh 'main'"]
+    B --> C["CI Checks Pass + Review Approved ➔ Merge main"]
+    C --> D["Tạo Tag chuẩn: 'make release-tag v=1.0.0'"]
+    D --> E["GitHub Tag Ruleset kiểm tra quyền (Bypass: Release Mgr)"]
+    E --> F["GitHub Actions bắt event: push tags 'v*.*.*'"]
+    F --> G["Kích hoạt Production Pipeline: Build Signed AAB/IPA"]
+    G --> H["Dual Approval (Tech Lead / Admin phê duyệt)"]
+    H --> I["Deploy Store + S3 + OTA + Bắn Card Telegram"]
+```
+
+### 🏷️ 1. Quy Tắc Định Dạng Tag Chuẩn SemVer (`v*.*.*`)
+Hệ thống CI/CD bắt buộc tag phải tuân theo chuẩn **Semantic Versioning (SemVer)**:
+- **Cấu trúc chuẩn**: `v<MAJOR>.<MINOR>.<PATCH>` (Bắt buộc có chữ `v` viết thường ở đầu).
+  - `v1.0.0`: Phiên bản phát hành chính thức đầu tiên.
+  - `v1.0.1`, `v1.0.2`: Phiên bản sửa lỗi, vá hotfix nhỏ (Patch).
+  - `v1.1.0`: Phiên bản bổ sung tính năng mới nhưng vẫn tương thích ngược (Minor).
+  - `v2.0.0`: Phiên bản nâng cấp lớn có thay đổi kiến trúc hoặc phá vỡ tính tương thích cũ (Major).
+- **Bản tiền phát hành (Pre-release)**: `v1.0.0-rc.1`, `v1.0.0-beta.1` (dùng khi thử nghiệm trước ngày ra mắt).
+
+### 🔒 2. Quy Tắc Bảo Vệ Tag (GitHub Tag Ruleset)
+Để ngăn chặn việc gắn tag bừa bãi hoặc vô tình kích hoạt release nhầm lên chợ ứng dụng:
+- **Tên Ruleset**: `Protected Production Tags (SemVer)` (áp dụng cho pattern `refs/tags/v*.*.*` và `refs/tags/v*`).
+- **Quy tắc thực thi**:
+  - ❌ **Developers thông thường**: Bị chặn 100% các quyền tạo tag, sửa tag, hoặc xóa tag `v*` trên GitHub.
+  - ✅ **Release Managers & Org Admins**: Được cấp quyền Bypass để đẩy tag lên GitHub.
+  - 🔒 **Tính Bất Biến (Immutable Tags)**: Tag sau khi đã push lên GitHub sẽ không thể bị ghi đè (không thể `git push -f`).
+
+### ⚡ 3. Cơ Chế Kích Hoạt Pipeline Khi Có Tag
+Khi một tag hợp lệ được push lên GitHub:
+1. File `.github/workflows/ci.yml` bắt sự kiện `on: push: tags: ['v*.*.*']`.
+2. Biến môi trường tự động chuyển sang **`environment: production`** (thay vì `staging` hay `dev`).
+3. Pipeline kích hoạt chuỗi tác vụ phát hành:
+   - Chạy toàn bộ Unit Tests, Lint, TypeCheck.
+   - Biên dịch signed AAB (Android) & IPA (iOS).
+   - Tự động tải lên AWS S3 và đăng ký vào OTA Distribution Portal.
+   - Nếu dự án có cấu hình **Dual Approval**: Pipeline sẽ dừng lại ở trạng thái `Waiting for review` để Tech Lead hoặc Release Manager phê duyệt trước khi đẩy lên Store.
+   - Bắn thẻ **Mobile Builder Photo Card** lên Telegram với tiêu đề `# TenApp Production v1.0.0`.
+
+### 🚀 4. Hướng Dẫn Các Bước Tạo Tag Phát Hành
+
+#### Cách 1: Dùng Lệnh Make (Khuyên dùng - Nhanh & Tránh Lỗi)
+Tại thư mục dự án (nhánh `main`):
+```bash
+make release-tag v=1.0.0 m="Phát hành phiên bản 1.0.0 chính thức"
+```
+*Lệnh này sẽ tự động kiểm tra xem bạn có đang ở nhánh `main` không, tạo Annotated Tag kèm message và đẩy thẳng lên GitHub.*
+
+#### Cách 2: Dùng Git CLI Thủ Công
+```bash
+# 1. Đảm bảo đang ở nhánh main và code mới nhất
+git checkout main
+git pull origin main
+
+# 2. Tạo Annotated Tag (Bắt buộc cờ -a để kèm metadata người tạo và ngày giờ)
+git tag -a v1.0.0 -m "Release version 1.0.0: Tính năng mới"
+
+# 3. Đẩy Tag lên GitHub
+git push origin v1.0.0
+```
+
+#### Cách 3: Tạo Release Trực Tiếp Trên Giao Diện GitHub
+1. Vào repository trên GitHub ➔ Cột bên phải mục **Releases** ➔ Bấm **Draft a new release**.
+2. Bấm **Choose a tag** ➔ Gõ `v1.0.0` ➔ Bấm **Create new tag: v1.0.0 on publish**.
+3. Target: Chọn nhánh **`main`**.
+4. Nhập Release title (ví dụ: `v1.0.0 - Official Launch`) và mô tả Changelog.
+5. Bấm **Publish release**.
+
+### ⚠️ 5. Xử Lý Khi Gắn Nhầm Tag
+Nếu lỡ tạo nhầm tag (ví dụ gõ nhầm version):
+```bash
+# 1. Xóa tag ở máy cục bộ
+git tag -d v1.0.0
+
+# 2. Xóa tag trên GitHub (Chỉ Release Manager hoặc Admin mới có quyền)
+git push origin --delete v1.0.0
+```
+
+---
+
+## 5. Sổ Tay Lệnh Hàng Ngày (Cheatsheet)
 
 | Nhu Cầu | Câu Lệnh Thực Hiện |
 | :--- | :--- |
 | **Khởi tạo CI/CD cho dự án mới** | `cicd` *(hoặc `bash ~/.mobile-cicd-admin/init-cicd.sh .`)* |
 | **Kiểm tra sức khỏe 15 Test Cases** | `make help && make type-check && make unit-test` |
+| **Tạo Tag phát hành Store (SemVer)** | `make release-tag v=1.0.0 m="Mô tả phát hành"` |
 | **Đẩy nhanh APK lên OTA + Telegram** | `./scripts/upload-build.sh -f path/to/app.apk -m "Ghi chú bản build"` |
 | **Đẩy nhanh IPA lên OTA + Telegram** | `./scripts/upload-build.sh -f path/to/app.ipa -m "Ghi chú bản build iOS"` |
 | **Thử nghiệm kết nối Telegram Bot** | `bash scripts/notify-telegram.sh --test` |
@@ -277,7 +364,7 @@ Dưới đây là bảng đặc tả chi tiết 100% toàn bộ các Secrets h�
 
 ---
 
-## 5. Xử Lý Sự Cố Thường Gặp (Troubleshooting)
+## 6. Xử Lý Sự Cố Thường Gặp (Troubleshooting)
 
 ### 1. Lỗi `HTTP 403: Resource not accessible by integration` khi chạy GitHub Actions
 - **Nguyên nhân**: Repo chưa được cấp quyền `Read and write permissions` cho Workflow.

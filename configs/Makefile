@@ -54,6 +54,7 @@ help:
 	@echo "  make appbundle                : Build Signed AAB cho Google Play"
 	@echo "  make internal                 : Tăng build number & đẩy Google Play Internal"
 	@echo "  make production-android       : Tăng build number & đẩy Google Play Production"
+	@echo "  make release-tag v=1.0.0      : Tạo & đẩy Tag chuẩn SemVer kích hoạt Release Store"
 	@echo "--- 📢 NOTIFICATIONS (TELEGRAM) --------------------------------------"
 	@echo "  make test-telegram            : Kiểm tra kết nối Telegram Bot"
 	@echo "  make notify-telegram m='...'  : Gửi thông báo tuỳ chỉnh lên Telegram"
@@ -197,4 +198,24 @@ notify-telegram:
 .PHONY: test-telegram
 test-telegram:
 	@bash scripts/notify-telegram.sh --test
+
+### 🏷️ RELEASE TAGGING ___________________________________
+.PHONY: release-tag
+release-tag:
+	@if [ -z "$(v)" ]; then \
+		echo "❌ Lỗi: Vui lòng truyền version cần tạo tag (VD: make release-tag v=1.0.0 m='Bản phát hành chính thức')"; \
+		exit 1; \
+	fi
+	@TAG="v$(patsubst v%,%,$(v))"; \
+	echo "🏷️ Đang kiểm tra nhánh hiện tại..."; \
+	CURRENT_BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main"); \
+	if [ "$$CURRENT_BRANCH" != "main" ]; then \
+		echo "⚠️ Cảnh báo: Bạn đang ở nhánh '$$CURRENT_BRANCH'. Khuyến nghị tạo tag Production từ nhánh 'main'!"; \
+	fi; \
+	echo "🚀 Đang tạo Annotated Tag: $$TAG..."; \
+	git tag -a "$$TAG" -m "$(or $(m),$(M),$(MESSAGE),Phát hành phiên bản $$TAG)"; \
+	echo "📤 Đang đẩy Tag $$TAG lên GitHub để kích hoạt Production Release Pipeline..."; \
+	git push origin "$$TAG"; \
+	echo "✅ Đã đẩy Tag $$TAG thành công! Pipeline Production sẽ tự động build và gửi thông báo Telegram."
+
 
