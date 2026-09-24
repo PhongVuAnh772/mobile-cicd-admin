@@ -16,15 +16,17 @@
 2. [Cấu trúc Repository](#-cấu-trúc-repository)
 3. [Chuẩn bị trước khi triển khai (Làm 1 lần duy nhất)](#-chuẩn-bị-trước-khi-triển-khai-làm-1-lần-duy-nhất)
 4. [Hướng dẫn tích hợp vào một dự án mới (Onboarding Checklist)](#-hướng-dẫn-tích-hợp-vào-một-dự-án-mới-onboarding-checklist)
-5. [Checklist Đẩy Google Play Store (Android Release)](#-checklist-đẩy-google-play-store-android-release)
-6. [Checklist Đẩy App Store & TestFlight (iOS Release)](#-checklist-đẩy-app-store--testflight-ios-release)
-7. [Checklist Phân phối OTA Web Distribution](#-checklist-phân-phối-ota-web-distribution)
-8. [Chi tiết các công cụ & Script cốt lõi](#-chi-tiết-các-công-cụ--script-cốt-lõi)
+5. [Quy Chuẩn & Luồng Gắn Tag Phát Hành (Release Tagging Rules)](#-quy-chuẩn--luồng-gắn-tag-phát-hành-release-tagging-rules)
+6. [Bảng Tra Cứu Toàn Bộ 22 Secrets Chi Tiết](#-bảng-tra-cứu-toàn-bộ-22-secrets-chi-tiết)
+7. [Checklist Đẩy Google Play Store (Android Release)](#-checklist-đẩy-google-play-store-android-release)
+8. [Checklist Đẩy App Store & TestFlight (iOS Release)](#-checklist-đẩy-app-store--testflight-ios-release)
+9. [Checklist Phân phối OTA Web Distribution](#-checklist-phân-phối-ota-web-distribution)
+10. [Chi tiết các công cụ & Script cốt lõi](#-chi-tiết-các-công-cụ--script-cốt-lõi)
    - [`setup-github-rules.sh` — Tự động hoá Governance & Teams](#1-setup-github-rulessh--tự-động-hoá-governance--teams)
    - [`init-cicd.sh` — Interactive CLI & 70 Test Cases Health Check](#2-init-cicdsh--interactive-cli--70-test-cases-health-check)
    - [`configs/Dangerfile.ts` — Trọng tài Review Pull Request](#3-dangerfilets--trọng-tài-review-pr-tự-động)
    - [`src/featureFlags.js` — DJB2 Deterministic User Bucketing](#4-featureflagsjs--rollout-theo-tỷ-lệ--kill-switch)
-9. [Các câu hỏi thường gặp (FAQ)](#-các-câu-hỏi-thường-gặp-faq)
+11. [Các câu hỏi thường gặp (FAQ)](#-các-câu-hỏi-thường-gặp-faq)
 
 ---
 
@@ -209,6 +211,120 @@ Quy trình chuẩn từng bước khi gắn CI/CD vào một ứng dụng mới 
     git push origin main
     ```
   - [ ] Mở tab **Actions** trên GitHub để theo dõi pipeline chạy tự động.
+
+- [ ] **Bước 9: Gắn Tag phát hành Store (Release Tagging)**
+  - [ ] Khi tính năng đã hoàn thiện và sẵn sàng phát hành Production:
+    ```bash
+    # Sử dụng lệnh Make tự động kiểm tra và gắn tag chuẩn SemVer
+    make release-tag v=1.0.0 m="Phát hành phiên bản 1.0.0 chính thức"
+    ```
+  - [ ] Pipeline sẽ tự động chuyển sang môi trường `production`, biên dịch bản Signed Release (AAB/IPA), tải lên S3, đăng ký OTA Portal và gửi thông báo Telegram.
+
+---
+
+## 🏷️ Quy Chuẩn & Luồng Gắn Tag Phát Hành (Release Tagging Rules)
+
+Luồng gắn tag là cơ chế chính thức và duy nhất để kích hoạt quy trình **Production Store Release** (Google Play Store, Apple App Store/TestFlight, AWS S3 Production & OTA).
+
+```mermaid
+flowchart TD
+    A["Dev hoàn thành tính năng trên 'dev'"] --> B["Tạo Pull Request vào 'main'"]
+    B --> C["Pass CI + Review Approved ➔ Merge vào 'main'"]
+    C --> D["Tạo Tag chuẩn: 'make release-tag v=1.0.0'"]
+    D --> E["GitHub Tag Ruleset kiểm tra quyền (Bypass: Release Mgr / Admin)"]
+    E --> F["GitHub Actions bắt event: push tags 'v*.*.*'"]
+    F --> G["Kích hoạt Production Pipeline: Build Signed AAB (Android) & IPA (iOS)"]
+    G --> H["Dual Approval (Tech Lead / Admin duyệt trên GitHub Actions)"]
+    H --> I["Deploy Store (Google Play / App Store) + S3 + OTA + Bắn Card Telegram"]
+```
+
+### 🏷️ 1. Quy Tắc Định Dạng Tag Chuẩn SemVer (`v*.*.*`)
+Hệ thống CI/CD bắt buộc tag phải tuân theo chuẩn **Semantic Versioning (SemVer)**:
+- **Cấu trúc chuẩn**: `v<MAJOR>.<MINOR>.<PATCH>` (Bắt buộc có chữ `v` viết thường ở đầu).
+  - `v1.0.0`: Phiên bản phát hành chính thức đầu tiên.
+  - `v1.0.1`: Bản vá lỗi khẩn cấp, sửa bug nhỏ (Patch / Hotfix).
+  - `v1.1.0`: Bổ sung tính năng mới nhưng vẫn tương thích ngược (Minor).
+  - `v2.0.0`: Nâng cấp lớn, thay đổi kiến trúc hoặc phá vỡ tính tương thích cũ (Major).
+- **Bản tiền phát hành (Pre-release)**: `v1.0.0-rc.1`, `v1.0.0-beta.1`.
+
+### 🔒 2. Quy Tắc Bảo Vệ Tag (GitHub Tag Ruleset)
+Để ngăn chặn việc gắn tag bừa bãi hoặc vô tình kích hoạt release nhầm lên chợ ứng dụng:
+- **Tên Ruleset**: `Protected Production Tags (SemVer)` (áp dụng cho pattern `refs/tags/v*.*.*` và `refs/tags/v*`).
+- **Quy tắc thực thi**:
+  - ❌ **Developers thông thường**: Bị chặn 100% các quyền tạo tag, sửa tag, hoặc xóa tag `v*` trên GitHub.
+  - ✅ **Release Managers & Org Admins**: Được cấp quyền Bypass để đẩy tag lên GitHub.
+  - 🔒 **Tính Bất Biến (Immutable Tags)**: Tag sau khi đã push lên GitHub sẽ không thể bị ghi đè (không thể `git push -f`).
+
+### ⚡ 3. Cơ Chế Kích Hoạt Pipeline Khi Có Tag
+Khi một tag hợp lệ được push lên GitHub:
+1. File `.github/workflows/ci.yml` bắt sự kiện `on: push: tags: ['v*.*.*']`.
+2. Biến môi trường tự động chuyển sang **`environment: production`** (thay vì `staging` hay `dev`).
+3. Pipeline kích hoạt chuỗi tác vụ phát hành:
+   - Chạy toàn bộ Unit Tests, Lint, TypeCheck.
+   - Biên dịch signed AAB (Android) & IPA (iOS).
+   - Tự động tải lên AWS S3 và đăng ký vào OTA Distribution Portal.
+   - Nếu dự án có cấu hình **Dual Approval**: Pipeline sẽ dừng lại ở trạng thái `Waiting for review` để Tech Lead hoặc Release Manager phê duyệt trước khi đẩy lên Store.
+   - Bắn thẻ **Mobile Builder Photo Card** lên Telegram với tiêu đề `# TenApp Production v1.0.0`.
+
+### 🚀 4. Hướng Dẫn Các Bước Tạo Tag Phát Hành
+```bash
+# Cách 1: Nhanh & chuẩn hóa nhất qua Makefile
+make release-tag v=1.0.0 m="Phát hành phiên bản 1.0.0 chính thức"
+
+# Cách 2: Dùng Git CLI thủ công (nhánh main)
+git checkout main && git pull origin main
+git tag -a v1.0.0 -m "Release version 1.0.0"
+git push origin v1.0.0
+```
+
+---
+
+## 🔑 Bảng Tra Cứu Toàn Bộ 22 Secrets Chi Tiết
+
+Dưới đây là bảng đặc tả chi tiết 100% toàn bộ các Secrets hỗ trợ trong hệ thống, kèm câu lệnh `gh secret set` để gán nhanh:
+
+### Nhóm 1: OTA Distribution Portal & Telegram (Bắt buộc)
+| STT | Tên Secret | Mô Tả & Cách Lấy | Giá Trị Mẫu | Lệnh Gán Nhanh CLI |
+| :---: | :--- | :--- | :--- | :--- |
+| 1 | `OTA_SERVER_URL` | Địa chỉ máy chủ OTA Web Portal. | `https://mobile-cicd-admin.onrender.com` | `gh secret set OTA_SERVER_URL -b "https://mobile-cicd-admin.onrender.com"` |
+| 2 | `TELEGRAM_BOT_TOKEN` | Token Bot Telegram cấp quyền đăng bài. Lấy từ `@BotFather` qua lệnh `/newbot`. | `8986495497:AAFc7LGv1cI51u-FjRAlO-ntYXUEMrZ1DAc` | `gh secret set TELEGRAM_BOT_TOKEN -b "8986495497:AAFc7LGv1cI51u-FjRAlO-ntYXUEMrZ1DAc"` |
+| 3 | `TELEGRAM_CHAT_ID` | ID nhóm hoặc kênh nhận thông báo build. Thêm bot `@RawDataBot` vào nhóm để xem `chat.id`. | `-5477336915` | `gh secret set TELEGRAM_CHAT_ID -b "-5477336915"` |
+| 4 | `TELEGRAM_THREAD_ID` | ID Topic/Chủ đề (nếu nhóm bật Topics/Forums). Chuột phải vào topic ➔ Copy link ➔ lấy số cuối. | `1234` | `gh secret set TELEGRAM_THREAD_ID -b "1234"` |
+
+### Nhóm 2: Lưu Trữ Đám Mây AWS S3
+| STT | Tên Secret | Mô Tả & Cách Lấy | Giá Trị Mẫu | Lệnh Gán Nhanh CLI |
+| :---: | :--- | :--- | :--- | :--- |
+| 5 | `AWS_ACCESS_KEY_ID` | Access Key của IAM User có quyền S3 PutObject. | `AKIAIOSFODNN7EXAMPLE` | `gh secret set AWS_ACCESS_KEY_ID -b "AKIAIOSFODNN7EXAMPLE"` |
+| 6 | `AWS_SECRET_ACCESS_KEY` | Secret Access Key tương ứng của IAM User. | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` | `gh secret set AWS_SECRET_ACCESS_KEY -b "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"` |
+| 7 | `AWS_S3_BUCKET` | Tên Bucket S3 lưu file APK/IPA. | `amzn-s3-cryptovault` | `gh secret set AWS_S3_BUCKET -b "amzn-s3-cryptovault"` |
+| 8 | `AWS_REGION` | Vùng lưu trữ của S3 Bucket. | `ap-southeast-2` | `gh secret set AWS_REGION -b "ap-southeast-2"` |
+
+### Nhóm 3: Ký Số & Phát Hành Android Google Play
+| STT | Tên Secret | Mô Tả & Cách Lấy | Giá Trị Mẫu | Lệnh Gán Nhanh CLI |
+| :---: | :--- | :--- | :--- | :--- |
+| 9 | `ANDROID_KEYSTORE_BASE64` | File keystore release mã hoá Base64. Chạy `base64 -i my.keystore \| tr -d '\n'`. | `MIIDvDCCAqSgAwIBAgIE...` | `gh secret set ANDROID_KEYSTORE_BASE64 -b "$(base64 -i my.keystore \| tr -d '\n')"` |
+| 10 | `ANDROID_KEYSTORE_PASSWORD` | Mật khẩu mở file keystore. | `MyKeystorePass123` | `gh secret set ANDROID_KEYSTORE_PASSWORD -b "MyKeystorePass123"` |
+| 11 | `ANDROID_KEY_ALIAS` | Tên alias của private key trong keystore. | `my-key-alias` | `gh secret set ANDROID_KEY_ALIAS -b "my-key-alias"` |
+| 12 | `ANDROID_KEY_PASSWORD` | Mật khẩu của key alias. | `MyKeyPass123` | `gh secret set ANDROID_KEY_PASSWORD -b "MyKeyPass123"` |
+| 13 | `GPLAY_SERVICE_ACCOUNT_JSON` | Nội dung JSON của Google Service Account tải từ Google Cloud Console có quyền Publish. | `{"type": "service_account", ...}` | `gh secret set GPLAY_SERVICE_ACCOUNT_JSON -b "$(cat gplay.json)"` |
+
+### Nhóm 4: Ký Số & Phát Hành iOS Apple App Store
+| STT | Tên Secret | Mô Tả & Cách Lấy | Giá Trị Mẫu | Lệnh Gán Nhanh CLI |
+| :---: | :--- | :--- | :--- | :--- |
+| 14 | `APP_STORE_CONNECT_API_KEY_KEY` | Nội dung file Private Key `.p8` từ App Store Connect API. | `-----BEGIN PRIVATE KEY-----\n...` | `gh secret set APP_STORE_CONNECT_API_KEY_KEY -b "$(cat AuthKey.p8)"` |
+| 15 | `APP_STORE_CONNECT_API_KEY_KEY_ID` | Key ID (10 ký tự) từ App Store Connect. | `D383X7YKP4` | `gh secret set APP_STORE_CONNECT_API_KEY_KEY_ID -b "D383X7YKP4"` |
+| 16 | `APP_STORE_CONNECT_API_KEY_ISSUER_ID` | Issuer ID (UUID) từ App Store Connect. | `57246542-96fe-1a63-e053-0824d011072a` | `gh secret set APP_STORE_CONNECT_API_KEY_ISSUER_ID -b "57246542-..."` |
+| 17 | `APPLE_CERTIFICATE_BASE64` | Chứng chỉ phân phối `.p12` mã hoá Base64. | `MIIKvgIBAzCCCncGCSqG...` | `gh secret set APPLE_CERTIFICATE_BASE64 -b "$(base64 -i cert.p12 \| tr -d '\n')"` |
+| 18 | `APPLE_CERTIFICATE_PASSWORD` | Mật khẩu bảo vệ file chứng chỉ `.p12`. | `CertPass2026` | `gh secret set APPLE_CERTIFICATE_PASSWORD -b "CertPass2026"` |
+| 19 | `PROVISIONING_PROFILE_BASE64` | File `.mobileprovision` mã hoá Base64. | `MIIUpAYJKoZIhvcNAQcC...` | `gh secret set PROVISIONING_PROFILE_BASE64 -b "$(base64 -i profile.mobileprovision \| tr -d '\n')"` |
+| 20 | `MATCH_PASSWORD` | *(Tùy chọn)* Mật khẩu giải mã kho chứng chỉ Fastlane Match. | `MatchSecretPass` | `gh secret set MATCH_PASSWORD -b "MatchSecretPass"` |
+| 21 | `MATCH_GIT_URL` | *(Tùy chọn)* Git URL của repo chứa chứng chỉ Match. | `git@github.com:phong-mobile/certs.git` | `gh secret set MATCH_GIT_URL -b "git@github.com:phong-mobile/certs.git"` |
+
+### Nhóm 5: Kênh Chat Doanh Nghiệp (Tùy chọn)
+| STT | Tên Secret | Mô Tả & Cách Lấy | Giá Trị Mẫu | Lệnh Gán Nhanh CLI |
+| :---: | :--- | :--- | :--- | :--- |
+| 22 | `SLACK_WEBHOOK_URL` | Incoming Webhook URL của kênh Slack. | `https://hooks.slack.com/services/T00/B00/XXX` | `gh secret set SLACK_WEBHOOK_URL -b "https://hooks.slack.com/..."` |
+| 23 | `TEAMS_WEBHOOK_URL` | Webhook URL của kênh Microsoft Teams Workflows. | `https://phongmobile.webhook.office.com/...` | `gh secret set TEAMS_WEBHOOK_URL -b "https://phongmobile.webhook.office.com/..."` |
 
 ---
 
