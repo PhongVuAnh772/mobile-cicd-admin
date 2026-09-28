@@ -188,6 +188,9 @@ Quy trình chuẩn từng bước khi gắn CI/CD vào một ứng dụng mới 
     jobs:
       admin-pipeline:
         uses: phong-mobile/mobile-cicd-admin/.github/workflows/master-pipeline.yml@main
+        with:
+          app_name: "MyMobileApp"
+          bundle_id: "com.company.mymobileapp" # (Tùy chọn: tự động nhận diện nếu để trống)
         secrets: inherit
     ```
 

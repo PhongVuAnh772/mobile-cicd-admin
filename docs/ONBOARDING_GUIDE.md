@@ -133,6 +133,7 @@ Hệ thống sẽ tự động:
        uses: phong-mobile/mobile-cicd-admin/.github/workflows/master-pipeline.yml@main
        with:
          app_name: "MyMobileApp"
+         bundle_id: "com.company.mymobileapp" # (Tùy chọn)
          environment: ${{ inputs.environment || (startsWith(github.ref, 'refs/tags/') && 'production' || 'staging') }}
        secrets: inherit
    ```
