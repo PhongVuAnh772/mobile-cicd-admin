@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: "MobileApp"
+      bundle_id:
+        description: "Application Bundle ID / Package Name (e.g. com.example.app)"
+        required: false
+        type: string
+        default: ""
       environment:
         description: "Môi trường: development | staging | production"
         required: false
@@ -214,6 +219,9 @@ jobs:
       - name: Build Android Release (APK & AAB)
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           echo "🚀 Building Android Release Binaries..."
           cd "$PROJECT_ROOT"
@@ -234,8 +242,13 @@ jobs:
 
           if [ -f "android/gradlew" ]; then
             chmod +x android/gradlew
+            GRADLE_SIGNING=""
+            if [ -f "android/app/release.keystore" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ]; then
+              echo "🔑 Injecting keystore credentials into Gradle..."
+              GRADLE_SIGNING="-Pandroid.injected.signing.store.file=$(pwd)/android/app/release.keystore -Pandroid.injected.signing.store.password=$ANDROID_KEYSTORE_PASSWORD -Pandroid.injected.signing.key.alias=${ANDROID_KEY_ALIAS:-release} -Pandroid.injected.signing.key.password=${ANDROID_KEY_PASSWORD:-$ANDROID_KEYSTORE_PASSWORD}"
+            fi
             echo "📦 Compiling Android assembleRelease (APK) & bundleRelease (AAB)..."
-            ./android/gradlew -p android assembleRelease bundleRelease --no-daemon
+            ./android/gradlew -p android assembleRelease bundleRelease --no-daemon $GRADLE_SIGNING
           else
             echo "❌ Không tìm thấy android/gradlew để build Android!"
             exit 1
@@ -295,11 +308,25 @@ jobs:
           if [ -n "$OTA_SERVER_URL" ]; then
             echo "🚀 Đang tải APK lên OTA Distribution Server: $OTA_SERVER_URL..."
             NOTE="${COMMIT_MSG:-Bản build $ENVIRONMENT từ CI/CD}"
-            OTA_RESP=$(curl -s -X POST "$OTA_SERVER_URL/api/ota/upload" \
+
+            # Xác định Bundle ID động (Ưu tiên input -> app.json -> build.gradle -> slug)
+            APP_BUNDLE_ID="${{ inputs.bundle_id }}"
+            if [ -z "$APP_BUNDLE_ID" ] && [ -f "app.json" ]; then
+              APP_BUNDLE_ID=$(python3 -c "import json; d=json.load(open('app.json')); print(d.get('expo',{}).get('android',{}).get('package') or d.get('expo',{}).get('ios',{}).get('bundleIdentifier') or '')" 2>/dev/null || echo "")
+            fi
+            if [ -z "$APP_BUNDLE_ID" ] && [ -f "android/app/build.gradle" ]; then
+              APP_BUNDLE_ID=$(grep -oE 'applicationId\s+["'"'"'][^"'"'"']+["'"'"']' android/app/build.gradle | head -n 1 | awk '{print $2}' | tr -d '"'"'"' || echo "")
+            fi
+            [ -z "$APP_BUNDLE_ID" ] && APP_BUNDLE_ID="com.$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '.')"
+            [ -z "$APP_BUNDLE_ID" ] && APP_BUNDLE_ID="com.mobileapp"
+
+            echo "📱 Application Bundle ID: $APP_BUNDLE_ID"
+
+            OTA_RESP=$(curl -s --connect-timeout 60 --max-time 180 --retry 3 -X POST "$OTA_SERVER_URL/api/ota/upload" \
               -F "file=@$SOURCE_APK" \
               --form-string "appName=$APP_NAME" \
               --form-string "platform=android" \
-              --form-string "bundleId=com.retroemulator" \
+              --form-string "bundleId=$APP_BUNDLE_ID" \
               --form-string "environment=$ENVIRONMENT" \
               --form-string "flavor=$ENVIRONMENT" \
               --form-string "message=$NOTE" \
